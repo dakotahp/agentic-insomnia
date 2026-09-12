@@ -248,11 +248,22 @@ const markStartupInProgress = async () => {
   await fs.promises.writeFile(STARTUP_FILE, Date.now().toString(), 'utf8');
 };
 
+/**
+ * Check whether the PID file names a process other than the caller
+ * @param {number} ownPid - PID of the calling server
+ * @returns {Promise<boolean>} True only when the file holds a different valid PID
+ */
+const isPidFileOwnedByOther = async ownPid => {
+  const pid = await readPidFile();
+  return pid !== null && pid !== ownPid;
+};
+
 module.exports = {
   writePidFile,
   readPidFile,
   removePidFileWithLock,
   removePidFile,
+  isPidFileOwnedByOther,
   validatePid,
   isServerRunningWithLock,
   isServerRunning,

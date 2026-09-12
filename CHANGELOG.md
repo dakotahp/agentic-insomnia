@@ -5,6 +5,15 @@ All notable changes to cc-caffeine are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-09-12
+
+### Fixed
+
+- A server that no longer owns `server.pid` now shuts itself down on its next
+  poll. If a startup race ever leaves two servers running, the extra one exits
+  instead of keeping its tray icon and sleep lock forever. See
+  samber/cc-caffeine#40.
+
 ## [0.5.0] - 2026-09-11
 
 ### Added
