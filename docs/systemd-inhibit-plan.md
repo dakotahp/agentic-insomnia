@@ -21,7 +21,6 @@ These facts come from the systemd source (`src/login/inhibit.c`, `man/systemd-in
 `src/login/org.freedesktop.login1.policy`) and Chromium's `power_save_blocker_linux.cc`.
 
 1. **A command is required.** With no command, `systemd-inhibit` lists inhibitors and exits.
-   `docs/native-caffeinate-plan.md` says "no command holds the lock". That is wrong.
 2. **The lock lives as long as the command.** The lock is taken before the command starts and
    released when the command exits.
 3. **Killing `systemd-inhibit` kills the command.** The child is forked with
