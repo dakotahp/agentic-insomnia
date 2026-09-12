@@ -5,6 +5,21 @@ All notable changes to cc-caffeine are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-09-12
+
+### Changed
+
+- CI runs as one `ci.yml` job on the Node version in `.node-version` (24),
+  instead of two workflows on a Node 18/20/22 matrix left over from npm
+  publishing. Lint now fails CI on violations.
+- `engines.node` is now `>=22.12.0`, the minimum Electron already requires.
+- `npm run lint` no longer auto-fixes or hides failures; use `npm run lint:fix`.
+
+### Removed
+
+- `dependabot-automerge.yaml`, which never ran because Dependabot only watches npm.
+- The npm `bin` entry and the upstream `repository` URL in `package.json`.
+
 ## [0.5.1] - 2026-09-12
 
 ### Fixed

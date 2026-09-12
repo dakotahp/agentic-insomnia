@@ -1,7 +1,7 @@
 {
     "name": "cc-caffeine",
     "description": "Prevents your computer from sleeping while Claude Code works hard",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "author": {
         "name": "Dakotah Peña",
         "email": "git@dakotahpena.dev"

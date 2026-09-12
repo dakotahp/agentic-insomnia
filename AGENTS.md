@@ -102,7 +102,7 @@ settings are optional and have sensible defaults.
 
 ## Technical Stack
 
-- **Node.js 18+** - Runtime environment (see `engines` in package.json)
+- **Node.js 22.12+** - Runtime environment (see `engines` in package.json; CI and local dev use the version in `.node-version`)
 - **Electron 44+** - Cross-platform desktop application framework
 - **proper-lockfile** - File locking for all concurrent access with retry logic
 - **Electron powerSaveBlocker** - Native cross-platform sleep prevention (default backend)
@@ -257,7 +257,8 @@ minutes of inactivity).
 
 ```bash
 npm test        # Run the test suite (node --test)
-npm run lint    # Run ESLint (auto-fixes)
+npm run lint    # Run ESLint (fails on violations, as CI does)
+npm run lint:fix # Run ESLint and auto-fix
 npm run format  # Format code with Prettier (if installed)
 npm run version # Show version information from package.json and plugin.json
 ```

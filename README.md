@@ -157,7 +157,7 @@ The Electron backend remains the cross-platform default.
 
 ## 📋 Local Development Requirements
 
-- Node.js >= 18.0.0 (your coffee of choice)
+- Node.js >= 22.12.0 (your coffee of choice; `.node-version` pins the one CI uses)
 - Electron (included automatically, like sugar in your espresso)
 
 ## 🚀 Run without Claude Code
