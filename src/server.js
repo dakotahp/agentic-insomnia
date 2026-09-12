@@ -149,6 +149,15 @@ const handleServer = async () => {
 };
 
 /**
+ * Build the callback a server runs when another server has taken over the PID file
+ * @param {() => void} exit - How this kind of server exits
+ */
+const shutDownWhenSuperseded = exit => async state => {
+  await shutdownServer(state);
+  exit();
+};
+
+/**
  * Start the server. With the native backend this runs as a plain Node process
  * (no Electron); with the Electron backend it boots the headless tray app.
  */
@@ -189,7 +198,7 @@ const startServer = async () => {
       onStateChange = undefined;
     }
 
-    startPolling(state, CHECK_INTERVAL, onStateChange);
+    startPolling(state, CHECK_INTERVAL, onStateChange, shutDownWhenSuperseded(quit));
 
     // Only setup signal handlers if server actually started
     if (state) {
@@ -229,7 +238,7 @@ const startNativeServer = async () => {
       caffeinateProcess: null
     };
 
-    startPolling(state, CHECK_INTERVAL);
+    startPolling(state, CHECK_INTERVAL, undefined, shutDownWhenSuperseded(() => process.exit(0)));
 
     process.on('SIGINT', async () => {
       console.error('Received SIGINT, shutting down server...');

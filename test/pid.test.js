@@ -56,6 +56,31 @@ test('validatePid returns false for a live non-caffeine process', async () => {
   assert.strictEqual(await validatePid(process.pid), false);
 });
 
+test('isPidFileOwnedByOther is false when no PID file exists', async () => {
+  makeTempHome();
+  const { isPidFileOwnedByOther } = loadPid();
+
+  assert.strictEqual(await isPidFileOwnedByOther(process.pid), false);
+});
+
+test('isPidFileOwnedByOther is false when the PID file holds our PID', async () => {
+  makeTempHome();
+  const { writePidFile, isPidFileOwnedByOther } = loadPid();
+
+  await writePidFile(process.pid);
+
+  assert.strictEqual(await isPidFileOwnedByOther(process.pid), false);
+});
+
+test('isPidFileOwnedByOther is true when the PID file holds another PID', async () => {
+  makeTempHome();
+  const { writePidFile, isPidFileOwnedByOther } = loadPid();
+
+  await writePidFile(process.pid + 1);
+
+  assert.strictEqual(await isPidFileOwnedByOther(process.pid), true);
+});
+
 test('isStartupInProgress is false with no marker', async () => {
   makeTempHome();
   const { isStartupInProgress } = loadPid();

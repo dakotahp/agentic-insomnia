@@ -8,6 +8,7 @@
 
 const { getActiveSessionsWithLock, cleanupExpiredSessionsWithLock } = require('./session');
 const { enableCaffeine, disableCaffeine } = require('./backend');
+const { isPidFileOwnedByOther } = require('./pid');
 
 /**
  * Update caffeine status based on active sessions
@@ -39,19 +40,45 @@ const updateCaffeineStatus = async (state, onStateChange) => {
 };
 
 /**
+ * Stop polling and call `onOwnershipLost` when the PID file names another server.
+ * A missing or unreadable PID file keeps this server running.
+ * @param {object} state - Tray state object
+ * @param {(state: object) => Promise<void>} onOwnershipLost - Shuts this server down
+ * @returns {Promise<boolean>} True if this server still owns the PID file
+ */
+const checkOwnership = async (state, onOwnershipLost) => {
+  try {
+    if (!(await isPidFileOwnedByOther(process.pid))) {
+      return true;
+    }
+  } catch (error) {
+    console.error('Error checking server ownership:', error.message);
+    return true;
+  }
+
+  console.error('Another server owns the PID file, shutting this one down');
+  stopPolling(state);
+  await onOwnershipLost(state);
+  return false;
+};
+
+/**
  * Start polling for session changes
  * @param {object} state - Tray state object
  * @param {number} [interval=10000] - Poll interval in ms
  * @param {(state: object) => void} [onStateChange] - Optional UI callback
+ * @param {(state: object) => Promise<void>} [onOwnershipLost] - Called when another server owns the PID file
  */
-const startPolling = (state, interval = 10000, onStateChange) => {
-  // Initial check
-  updateCaffeineStatus(state, onStateChange);
+const startPolling = (state, interval = 10000, onStateChange, onOwnershipLost) => {
+  const poll = async () => {
+    if (onOwnershipLost && !(await checkOwnership(state, onOwnershipLost))) {
+      return;
+    }
+    await updateCaffeineStatus(state, onStateChange);
+  };
 
-  // Set up periodic polling
-  state.pollInterval = setInterval(() => {
-    updateCaffeineStatus(state, onStateChange);
-  }, interval);
+  poll();
+  state.pollInterval = setInterval(poll, interval);
 
   // Expose a stop handle on the state so the UI layer can stop polling
   // without importing this module (breaks the poller <-> system-tray cycle).
@@ -75,6 +102,7 @@ const stopPolling = state => {
 
 module.exports = {
   updateCaffeineStatus,
+  checkOwnership,
   startPolling,
   stopPolling
 };

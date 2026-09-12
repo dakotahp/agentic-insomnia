@@ -238,6 +238,7 @@ minutes of inactivity).
 - Multiple sessions can be active simultaneously
 - Sleep prevention is active when at least one session is active
 - Commands auto-start server if not running
+- A server whose PID is no longer in `server.pid` shuts itself down on its next poll
 - Only server command loads Electron system tray (lightweight client commands)
 - All session operations are atomic within file locks to prevent corruption
 - Session timestamps: `created_at` preserved, `last_activity` updated on subsequent calls
@@ -285,7 +286,7 @@ The application uses CommonJS modules with a clear dependency hierarchy:
 - `caffeine.js` imports from `src/commands.js` and `src/server.js`
 - `src/commands.js` imports from `src/session.js`, `src/pid.js`, `src/server.js`, and `src/config.js`
 - `src/server.js` imports from `src/session.js`, `src/pid.js`, `src/electron.js`, `src/system-tray.js`, `src/poller.js`, and `src/config.js`
-- `src/poller.js` imports from `src/session.js` and `src/backend.js`
+- `src/poller.js` imports from `src/session.js`, `src/pid.js`, and `src/backend.js`
 - `src/backend.js` imports from `src/electron.js` and `src/native.js`
 - `src/native.js` provides the OS `caffeinate` backend on-demand
 - `src/system-tray.js` imports from `src/electron.js`, `src/config.js`, `src/pid.js`, and `src/backend.js`
