@@ -5,7 +5,7 @@
  * in-process plugin system. This module is self-contained: it maps OpenCode
  * events to the same `caffeinate`/`uncaffeinate` actions the Claude Code hooks
  * use, then shells out to the existing CLI so all session/server/idle-timeout
- * logic stays in one place. See "OpenCode Plugin" in AGENTS.md for the event
+ * logic stays in one place. See "Integrations" in ARCHITECTURE.md for the event
  * mapping and the reasoning behind this being a single file.
  *
  * It is a single file on purpose: OpenCode loads one plugin file, so the plugin

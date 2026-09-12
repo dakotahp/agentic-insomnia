@@ -1,377 +1,69 @@
-# CC-Caffeine: Claude Code Sleep Prevention System
+# CC-Caffeine
 
-A Node.js/Electron script that prevents your computer from going to sleep while
-using Claude Code through system tray integration and session management.
+Keeps the computer awake while Claude Code or OpenCode works. Short-lived CLI clients
+record sessions in a locked JSON file. A long-lived server polls it and holds a sleep
+lock while any session is active.
 
-This is the canonical, agent-agnostic reference for the project. `CLAUDE.md`
-points here. `ARCHITECTURE.md` is the contributor-facing walkthrough; keep the
-two in agreement when the architecture changes.
+Read `ARCHITECTURE.md` before changing server startup, sessions, or a backend.
+User-facing install and config are in `README.md`.
 
-## Architecture
-
-The system is a modular architecture split by concern. The three concerns that
-used to live together in `system-tray.js` are now separate modules so the
-mechanism can become swappable (native vs Electron) and the UI optional without
-touching the others.
-
-### Core Modules
-
-1. **caffeine.js** - Main entry point; orchestrates modules and routes commands
-2. **src/commands.js** - CLI handling and process management (caffeinate/uncaffeinate/status/version)
-3. **src/session.js** - Session persistence with file locking and timeout handling
-4. **src/pid.js** - Atomic PID file operations and server-running checks
-5. **src/server.js** - Server process management and Electron integration
-6. **src/backend.js** - *Mechanism*: how sleep is prevented (`enableCaffeine`/`disableCaffeine`); dispatches to a backend by `sleep_backend` config
-7. **src/native.js** - *Native backend*: prevents sleep via the OS sleep tool, `caffeinate` on macOS or `systemd-inhibit` on Linux (`enableCaffeine`/`disableCaffeine`/`isAvailable`/`resolveNativeCommand`/`setDependencies`)
-8. **src/poller.js** - *Decision*: when to prevent/release sleep (`updateCaffeineStatus`/`startPolling`/`stopPolling`)
-9. **src/system-tray.js** - *UI*: the system tray indicator (`createIcon`/`createSystemTray`/`updateTrayIcon`/`getSystemTray`/`getSystemTrayState`/`shutdownServer`)
-10. **src/electron.js** - Wraps Electron-specific functionality, loaded on demand
-11. **src/config.js** - Reads user configuration from `~/.claude/plugins/cc-caffeine/config.json`
-12. **opencode/cc-caffeine.mjs** - OpenCode plugin: a self-contained ESM module that maps OpenCode events to `caffeinate`/`uncaffeinate` CLI calls and shells out to the existing CLI. It is OpenCode-only (the Claude Code path uses `caffeine.js` directly) and is one file on purpose, since OpenCode loads a single plugin file
-
-### The three concerns (mechanism / decision / UI)
-
-| Concern | What it is | Module |
-|---|---|---|
-| **Mechanism** | *how* sleep is prevented | `src/backend.js` (`enableCaffeine`/`disableCaffeine` → `powerSaveBlocker`) |
-| **Decision** | *when* to prevent/release (idle) | `src/poller.js` (`updateCaffeineStatus`/`startPolling`/`stopPolling`) |
-| **UI** | the system tray indicator | `src/system-tray.js` (`createIcon`/`createSystemTray`/`updateTrayIcon`/`getSystemTray`/`getSystemTrayState`/`shutdownServer`) |
-
-`backend.js` is the swappable seam: it dispatches to a backend by the
-`sleep_backend` config setting. The default `electron` backend uses
-`powerSaveBlocker`; the `native` backend (`src/native.js`) prevents sleep via the
-OS sleep tool (`caffeinate` on macOS, `systemd-inhibit` on Linux) and runs
-without Electron.
-
-`getSleepBackend()` in `backend.js` resolves the config once per process. It
-returns `native` only when `native.isAvailable()` is true, and otherwise warns
-and returns `electron`. `server.js` uses the same function to pick the server
-script, so the process type and the mechanism always agree.
-
-The native backend records a tool that fails to start, or exits within
-`EARLY_EXIT_MS`, on `state.nativeFailure` and stops respawning it.
-
-On Linux the command is `systemd-inhibit --what=sleep:idle --who=cc-caffeine
---why=... --mode=block cat` with a stdin pipe. `cat` exits when the pipe closes,
-which also happens if the server dies, so a crash cannot leak the lock.
-
-### Breaking the poller ↔ system-tray cycle
-
-`updateCaffeineStatus` (decision) used to call `updateTrayIcon` (UI), and
-`shutdownServer` (UI) called `stopPolling` (decision) — a circular import. It is
-resolved by **callback injection** (no functional change):
-
-- `updateCaffeineStatus(state, onStateChange)` takes an optional callback instead
-  of importing `updateTrayIcon`. The UI passes `updateTrayIcon` in.
-- `startPolling` stores a `stopPolling` handle on the state object
-  (`state.stopPolling`), so `shutdownServer` stops polling without importing
-  `poller`.
-
-Result: `poller` no longer imports `system-tray`, and `system-tray` no longer
-imports `poller`. The callback is also the seam for a future "tray off" mode
-(pass no callback → no UI update).
-
-## User Commands
-
-1. **caffeinate** - Adds session to JSON file and ensures server is running
-2. **uncaffeinate** - Removes session from JSON file
-3. **status** - Shows current session/server status
-4. **server** - Starts Electron system tray application that polls JSON file for active sessions
-5. **version** - Shows version information from package.json and plugin.json
-
-## Features
-
-- Cross-platform support (Linux, macOS, Windows)
-- Headless Electron system tray (no windows, only system tray)
-- JSON file for session persistence with proper-lockfile for concurrency
-- Configurable session timeout (default: 15 minutes of inactivity)
-- Auto-server startup when not running
-- Multiple concurrent session support
-- Real-time status monitoring
-- Lightweight client commands (no Electron dependency for caffeinate/uncaffeinate)
-- Native sleep prevention using Electron's powerSaveBlocker API
-- Optional native backend (`caffeinate` on macOS, `systemd-inhibit` on Linux) that runs without Electron, with an automatic Electron fallback
-- Hidden from macOS dock using app.dock.hide()
-
-## Configuration
-
-User configuration is stored at `~/.claude/plugins/cc-caffeine/config.json`. All
-settings are optional and have sensible defaults.
-
-```json
-{
-   "session_timeout_minutes": 15,
-   "icon_theme": "orange",
-   "sleep_backend": "electron"
-}
-```
-
-### Options
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
-| `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
-| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker, with tray) or `"native"` (OS sleep tool, no Electron; falls back to `"electron"` when unavailable) |
-
-## Technical Stack
-
-- **Node.js 22.12+** - Runtime environment (see `engines` in package.json; CI and local dev use the version in `.node-version`)
-- **Electron 44+** - Cross-platform desktop application framework
-- **proper-lockfile** - File locking for all concurrent access with retry logic
-- **Electron powerSaveBlocker** - Native cross-platform sleep prevention (default backend)
-- **OS `caffeinate` / `systemd-inhibit`** - Sleep prevention for the native backend on macOS / Linux (no Electron)
-- **Electron Tray/Menu** - System tray functionality
-- **JSON file** - Session storage and communication
-- **setInterval** - Background polling for session changes
-
-## Commands Usage
-
-### caffeinate
-Enables sleep prevention for the current session (lightweight, no system tray).
-```bash
-node caffeine.js caffeinate
-# or
-npm run caffeinate
-```
-Accepts JSON via stdin with session_id:
-```json
-{"session_id": "abc123"}
-```
-
-### uncaffeinate
-Disables sleep prevention for the current session (lightweight, no system tray).
-```bash
-node caffeine.js uncaffeinate
-# or
-npm run uncaffeinate
-```
-Accepts JSON via stdin with session_id:
-```json
-{"session_id": "abc123"}
-```
-
-### server
-Starts the headless Electron caffeine server with system tray only.
-```bash
-node caffeine.js server
-# or
-npm run server
-# or
-npm start
-```
-
-### version
-Shows version information from both package.json and .claude-plugin/plugin.json.
-```bash
-node caffeine.js version
-# or
-npm run version
-```
-
-## Installation & Setup
-
-1. Install Node.js dependencies:
-```bash
-npm install
-```
-
-2. Create config directory:
-```bash
-mkdir -p ~/.claude/plugins/cc-caffeine
-```
-
-3. Make the script executable (optional):
-```bash
-chmod +x caffeine.js
-```
-
-4. Configure Claude Code hooks (example):
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node /path/to/caffeine.js caffeinate"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node /path/to/caffeine.js uncaffeinate"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Note: The server will be auto-started by the caffeinate command when needed.
-
-## JSON File Structure
-
-JSON file located at: `~/.claude/plugins/cc-caffeine/sessions.json`
-
-```json
-{
-  "sessions": {
-    "session_id_abc123": {
-      "created_at": "2025-01-08T10:30:00.000Z",
-      "last_activity": "2025-01-08T10:45:00.000Z"
-    }
-  },
-  "last_updated": "2025-01-08T10:45:00.000Z"
-}
-```
-
-Sessions are removed automatically after the configured timeout (default 15
-minutes of inactivity).
-
-## File Concurrency
-
-- **proper-lockfile** ensures atomic read/write operations
-- File locking prevents corruption when multiple processes access simultaneously
-- Short lock duration - Lock only held during actual read/write operations
-- Built-in retry mechanism with configurable timeout
-- Cross-platform file locking using OS primitives
-- Atomic session operations (add/remove) within single lock to prevent race conditions
-
-## Session Management
-
-- Sessions auto-expire after the configured timeout (default: 15 minutes of inactivity)
-- Automatic cleanup of expired sessions during every add/remove operation
-- Server polls JSON file every 5 seconds for active sessions (with file locking)
-- Multiple sessions can be active simultaneously
-- Sleep prevention is active when at least one session is active
-- Commands auto-start server if not running
-- A server whose PID is no longer in `server.pid` shuts itself down on its next poll
-- Only server command loads Electron system tray (lightweight client commands)
-- All session operations are atomic within file locks to prevent corruption
-- Session timestamps: `created_at` preserved, `last_activity` updated on subsequent calls
-- All JSON file operations (read/write) are protected with proper-lockfile
-- Client commands (caffeinate/uncaffeinate) work without Electron dependency
-
-## System Tray
-
-- Headless Electron application - no windows ever created
-- Shows custom icon when caffeinated/inactive
-- Context menu with Exit button
-- Hidden from macOS dock using `app.dock.hide()`
-- Cross-platform system tray support
-
-## Development Scripts
+## Commands
 
 ```bash
-npm test        # Run the test suite (node --test)
-npm run lint    # Run ESLint (fails on violations, as CI does)
-npm run lint:fix # Run ESLint and auto-fix
-npm run format  # Format code with Prettier (if installed)
-npm run version # Show version information from package.json and plugin.json
+npm test                                   # all suites (node --test)
+node --test test/native.test.js            # one suite
+npm run lint                               # ESLint, fails on violations (as CI does)
+npm run lint:fix                           # ESLint with auto-fix
+node caffeine.js status                    # server, backend, sessions
+echo '{"session_id":"x"}' | node caffeine.js caffeinate    # also starts the server
+node caffeine.js server                    # foreground server, to see logs
 ```
+
+No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and local dev use).
+
+## Map
+
+| Concern | Module |
+|---|---|
+| CLI routing | `caffeine.js`, `src/commands.js` |
+| Session file (locked) | `src/session.js` |
+| PID file, startup marker | `src/pid.js` |
+| Server startup | `src/server.js` |
+| Decision: when to hold the lock | `src/poller.js` |
+| Mechanism: backend choice | `src/backend.js` |
+| caffeinate / systemd-inhibit | `src/native.js` |
+| Tray UI and shutdown | `src/system-tray.js` |
+| Lazy Electron loader | `src/electron.js` |
+| Config (cached) | `src/config.js` |
+| Integrations | `hooks/hooks.json`, `opencode/cc-caffeine.mjs` |
+
+## Rules and gotchas
+
+- Client commands must never call `getElectron()`.
+- `poller` and `system-tray` must not import each other. Use the `onStateChange`
+  callback and `state.stopPolling`.
+- A server exits on its next poll when `server.pid` names a different server
+  (`onOwnershipLost` in `startPolling`). Keep that path when changing startup.
+- Use `getSleepBackend()` for backend decisions, never `config.sleep_backend`.
+- Backend enable/disable must be safe to call twice and keep handles on `state`.
+- The Linux command ends in `cat` with a stdin pipe on purpose: it releases the lock
+  if the server dies. Do not replace it with `sleep infinity`.
+- Config is cached per process. Restart the server after config changes.
+- The background server discards its logs. Debug with a foreground server.
+- `opencode/cc-caffeine.mjs` stays one file with only a default export.
+- CI (`.github/workflows/ci.yml`) runs lint and tests on Ubuntu. Tests must not depend
+  on the host OS: pin the platform with `native.setDependencies`, and mock
+  config/electron through `require.cache`.
+- `test/pid.test.js` spawns `ps` and fails with EPERM in sandboxes. That is not a bug.
+- Update `README.md` for user-visible changes, `ARCHITECTURE.md` for design changes.
 
 ## Versioning
 
-Follows [SemVer](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-(`CHANGELOG.md`). Bump the version and add a changelog entry in the same PR as
-the change, not as a separate release step:
+SemVer plus `CHANGELOG.md` (Keep a Changelog). Bump once per feature, in the same PR.
 
-- New capability, integration, or config option (backward-compatible) → **minor**
-- Bug fix, doc fix, or internal refactor with no behavior change → **patch**
-- Breaking change to CLI args, config shape, or the session file format → **major**
-  (rare pre-1.0; confirm with the user first)
+- New capability or config option: minor
+- Fix or refactor with no behavior change: patch
+- Breaking CLI, config, or session file change: major (confirm with the user first)
 
-Unreleased work on a feature branch doesn't get its own bump per commit — one
-bump covers the whole feature when it ships.
-
-The version string is duplicated in `package.json` and
-`.claude-plugin/plugin.json`; update both together.
-
-## Module Import Structure
-
-The application uses CommonJS modules with a clear dependency hierarchy:
-
-- `caffeine.js` imports from `src/commands.js` and `src/server.js`
-- `src/commands.js` imports from `src/session.js`, `src/pid.js`, `src/server.js`, `src/config.js`, and `src/backend.js`
-- `src/server.js` imports from `src/session.js`, `src/pid.js`, `src/electron.js`, `src/system-tray.js`, `src/poller.js`, and `src/backend.js`
-- `src/poller.js` imports from `src/session.js`, `src/pid.js`, and `src/backend.js`
-- `src/backend.js` imports from `src/electron.js` and `src/native.js`
-- `src/native.js` provides the OS sleep tool backend (`caffeinate` / `systemd-inhibit`) on-demand
-- `src/system-tray.js` imports from `src/electron.js`, `src/config.js`, `src/pid.js`, and `src/backend.js`
-- `src/session.js` imports from `src/config.js`
-- `src/config.js` reads `~/.claude/plugins/cc-caffeine/config.json`
-- `src/electron.js` provides Electron functionality on-demand
-
-`poller` and `system-tray` do **not** import each other (cycle broken via
-callback injection — see "Breaking the poller ↔ system-tray cycle" above).
-
-## Sleep Prevention
-
-- Uses **Electron's powerSaveBlocker** for cross-platform sleep prevention (default)
-- `powerSaveBlocker.start('prevent-app-suspension')` blocks system sleep and app suspension
-- The **native backend** (`sleep_backend: "native"`) prevents sleep via `caffeinate -i` on macOS or `systemd-inhibit --what=sleep:idle --mode=block` on Linux, and runs without Electron
-- Linux native support needs systemd/logind and a login session; it does not block lid-close suspend or screen blanking, and is still being validated on real desktops
-- Automatically activates when sessions are active
-- Gracefully releases sleep prevention on shutdown
-- Works on Windows, macOS, and Linux
-
-## File Structure
-
-```
-caffeine.js              - Main entry point and command routing
-src/
-├── commands.js          - Command-line interface and process management
-├── session.js           - Session persistence and file locking
-├── pid.js               - Atomic PID file operations and server checks
-├── server.js             - Server process management and Electron integration
-├── backend.js            - Mechanism: enableCaffeine / disableCaffeine
-├── native.js             - Native backend: caffeinate (macOS) / systemd-inhibit (Linux)
-├── poller.js             - Decision: updateCaffeineStatus / startPolling / stopPolling
-├── system-tray.js       - UI: system tray indicator
-├── electron.js          - Electron-specific functionality wrapper
-└── config.js            - User configuration reader
-package.json             - Node.js dependencies and scripts
-assets/                  - Tray icons (PNG/SVG, colored + monochrome)
-~/.claude/plugins/cc-caffeine/
-├── sessions.json        - JSON file with session data
-└── config.json          - User configuration (optional)
-```
-
-## Error Handling
-
-- Graceful server startup fallback if Electron unavailable
-- JSON file read/write error recovery with proper-lockfile
-- All operations protected by file locks to prevent race conditions
-- Atomic session operations prevent data corruption during concurrent access
-- Session cleanup on process termination
-- Cross-platform path handling using Node.js path module
-- Lock timeout handling with proper error messages
-- Automatic expired session cleanup during every operation
-- Proper powerSaveBlocker cleanup on server shutdown
-- Graceful error handling for missing Electron APIs
-
-## Cross-platform
-
-- Native macOS/Windows/Linux sleep prevention via Electron
-- Compatible with OS security permissions and system tray
-- Background process
-
-## Security Considerations
-
-- Session validation and timeout protection
-- No external network connections required
-- File access restricted to user's home directory
-- Process isolation between client commands and Electron server
-
-## Performance Considerations
-
-- Minimal memory footprint
-- Efficient polling with 5-second intervals
-- Fast startup time (< 1 seconds for Electron)
+Update the version in both `package.json` and `.claude-plugin/plugin.json`. CI fails
+when they differ.
