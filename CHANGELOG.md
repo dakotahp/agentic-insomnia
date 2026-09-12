@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   systemd system, the server holds a logind lock with
   `systemd-inhibit --what=sleep:idle --mode=block`. The lock is released when
   sessions go idle, when the server stops, and when the server process dies.
-  Unit tested; validation on real Linux desktops is still in progress.
+  Tested on Omarchy (Arch Linux) with systemd 261 and Hyprland.
 - **Automatic Electron fallback**: when `native` is configured but no native
   tool is available (non-systemd Linux, Windows), cc-caffeine logs a warning
   and uses the Electron backend.

@@ -211,8 +211,9 @@ Known limits:
 - Does not stop screen blanking or locking, the same as Electron's `prevent-app-suspension`.
 - Does not block lid-close suspend (`handle-lid-switch`).
 - Electron on Linux talks to the desktop's session manager over D-Bus. This backend talks to
-  logind. Desktop auto-suspend should respect a logind block lock, and real-desktop testing is
-  ongoing.
+  logind, which refuses suspend requests while the lock is held. Tested on Omarchy (Arch),
+  systemd 261, Hyprland. A desktop idle screen lock that uses Wayland idle inhibitors still
+  locks the screen.
 
 ## Configuration
 

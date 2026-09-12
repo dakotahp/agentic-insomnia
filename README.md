@@ -165,7 +165,7 @@ The Electron backend remains the cross-platform default.
 
 #### Linux notes
 
-Native support on Linux is new in 0.6.0. It is unit tested, and testing on real Linux desktops is still in progress. What is known so far:
+Native support on Linux is new in 0.6.0. It was tested on Omarchy (Arch Linux) with systemd 261 and Hyprland. Other distros and desktops are not tested yet.
 
 - It needs systemd (logind). Distros without it, such as Void, Alpine, Artix, or WSL without systemd, fall back to Electron.
 - It blocks suspend, hibernate, and logind's idle action. The screen can still blank and lock, the same as with the Electron backend.

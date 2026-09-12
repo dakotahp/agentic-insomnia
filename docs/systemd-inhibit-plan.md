@@ -1,9 +1,9 @@
 # Linux Native Backend: `systemd-inhibit`
 
-> Status: implemented as 0.6.0. Validated on Omarchy (Arch), systemd 261, Hyprland, see
-> `docs/systemd-inhibit-linux-results.md`. Still open: A4 (suspend refused), A11 (idle suspend
-> and screen lock on Hyprland), A12 (lid close). `--no-ask-password` exists on systemd 261 but is
-> left out, since no hang or prompt was seen.
+> Status: validated. Implemented as 0.6.0 and tested on Omarchy (Arch), systemd 261, Hyprland.
+> See `docs/systemd-inhibit-linux-results.md`. Not tested: SSH logins (A9), lid close (A12),
+> and idle suspend on GNOME or KDE (A11 does not apply on Omarchy). `--no-ask-password` exists
+> on systemd 261 but is left out, since no hang or prompt was seen.
 
 ## Verdict
 
