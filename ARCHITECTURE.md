@@ -206,8 +206,8 @@ with stdin as a pipe from the server and stderr captured for error messages.
 Known limits:
 
 - Needs systemd and logind. Other init systems fall back to Electron.
-- Needs a login session. By default, polkit allows sleep locks for active and inactive
-  sessions, but requires admin approval for processes outside a session.
+- Works from a login session. Processes outside a session may be denied the lock, depending on
+  the distro's polkit rules. Arch with systemd 261 allowed it from `systemd-run --user`.
 - Does not stop screen blanking or locking, the same as Electron's `prevent-app-suspension`.
 - Does not block lid-close suspend (`handle-lid-switch`).
 - Electron on Linux talks to the desktop's session manager over D-Bus. This backend talks to

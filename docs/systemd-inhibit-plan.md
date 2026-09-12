@@ -1,8 +1,9 @@
 # Linux Native Backend: `systemd-inhibit`
 
-> Status: implemented as 0.6.0 on branch `worktree-systemd-inhibit-plan`, pending Linux
-> validation. See `docs/systemd-inhibit-linux-final-phase.md`. `--no-ask-password` is left out
-> until check A2 confirms the flag exists.
+> Status: implemented as 0.6.0. Validated on Omarchy (Arch), systemd 261, Hyprland, see
+> `docs/systemd-inhibit-linux-results.md`. Still open: A4 (suspend refused), A11 (idle suspend
+> and screen lock on Hyprland), A12 (lid close). `--no-ask-password` exists on systemd 261 but is
+> left out, since no hang or prompt was seen.
 
 ## Verdict
 
@@ -28,8 +29,9 @@ These facts come from the systemd source (`src/login/inhibit.c`, `man/systemd-in
 4. **The command keeps stdin.** The fork does not use `FORK_NULL_STDIO`, so the child reads
    the stdin we give `systemd-inhibit`.
 5. **Polkit defaults** for `inhibit-block-sleep`: `allow_active=yes`, `allow_inactive=yes`,
-   `allow_any=auth_admin_keep`. A normal desktop or SSH login works. A process outside any
-   logind session (some containers, cron) is denied.
+   `allow_any=auth_admin_keep`. A normal desktop login works. A process outside any logind
+   session may be denied, depending on the distro's polkit rules. On Arch with systemd 261,
+   `systemd-run --user` was allowed.
    `inhibit-block-idle` is `yes` for all three.
 6. **Electron uses a different layer.** On Linux, `powerSaveBlocker` calls
    `org.gnome.SessionManager` over D-Bus, with `org.freedesktop.PowerManagement` as a fallback.
@@ -101,8 +103,8 @@ server crash -> stdin pipe closes -> cat exits -> lock released
 1. **No tray.** Same as the macOS native backend. Accepted.
 2. **systemd only.** Void, Alpine, Artix, Gentoo with OpenRC, and WSL without systemd fall back
    to Electron. elogind systems usually lack the `systemd-inhibit` binary, so they fall back too.
-3. **A logind session is needed.** Desktop and SSH logins work. Processes started outside a
-   session are denied by polkit (`allow_any=auth_admin_keep`).
+3. **A logind session is needed.** Desktop logins work. Processes started outside a
+   session may be denied, depending on the distro's polkit rules.
 4. **Desktop auto-suspend is not proven.** GNOME and KDE auto-suspend should call logind, which
    refuses while a block inhibitor is held. Electron instead talks to the GNOME session manager.
    The behavior can differ, so test it on a real desktop before calling it done.

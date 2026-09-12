@@ -170,7 +170,7 @@ Native support on Linux is new in 0.6.0. It is unit tested, and testing on real 
 - It needs systemd (logind). Distros without it, such as Void, Alpine, Artix, or WSL without systemd, fall back to Electron.
 - It blocks suspend, hibernate, and logind's idle action. The screen can still blank and lock, the same as with the Electron backend.
 - Closing the lid can still suspend the machine.
-- It needs a normal login session, such as a desktop or SSH login. Processes started outside a login session may be denied the lock by polkit.
+- It works from a normal login session, such as a desktop terminal or tmux. Processes started outside a login session may be denied the lock, depending on the distro's polkit rules.
 - If the lock is denied after the server starts, the server logs the reason and keeps running without sleep prevention. It does not switch to Electron. To see the log, run the server in the foreground with `node caffeine.js server`.
 - The lock is released when sessions go idle, when the server stops, and also when the server crashes.
 - While the lock is held, `systemd-inhibit --list` shows a `cc-caffeine` entry.
