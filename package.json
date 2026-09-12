@@ -31,9 +31,9 @@
     "electron"
   ],
   "author": {
-    "name": "Samuel Berthe",
-    "email": "hey@samuel-berthe.fr",
-    "url": "https://samuel-berthe.fr"
+    "name": "Dakotah Peña",
+    "email": "git@dakotahpena.dev",
+    "url": "https://dakotahpena.dev"
   },
   "license": "MIT",
   "dependencies": {

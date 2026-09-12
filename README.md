@@ -1,10 +1,16 @@
 # cc-caffeine ☕⚡
 
-**Transform your 9-to-5 into 9:30-to-4:30.** Arrive 30min later, leave 30min earlier, while getting the same work done because Claude Code keeps your laptop awake while working.
+_The successor to the now deprecated [samber/cc-caffeine](https://github.com/samber/cc-caffeine)._
+
+Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `cc-caffeine` keeps Claude Code and OpenCode harnesses awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
 
 ## 🎯 Installation
 
-Add this repo as a Claude Code plugin marketplace, then install the plugin:
+Claude Code and OpenCode harnesses are both supported, and the installation method is different for each.
+
+### Claude Code Installation
+
+Add the repo as a Claude Code plugin marketplace, then install the plugin:
 
 ```bash
 /plugin marketplace add dakotahp/cc-caffeine
@@ -19,39 +25,49 @@ Installing the plugin registers its hooks automatically, so no manual hook confi
 
 ![](./assets/icon-coffee-full.png) - Claude Code is working hard
 
-## ✨ Why It's Pure Magic
+### OpenCode Installation
 
-**Automatic Intelligence**: cc-caffeine knows when Claude Code is working and prevents your computer from sleeping. Period.
+Install as an OpenCode plugin instead of hooks.
 
-**System Tray Chic**: A tiny ☕️ icon in your status bar to know instantly if you're protected.
+Open (or create) `~/.config/opencode/opencode.json` and add the
+plugin:
 
-**Perfect Sessions**: Multiple simultaneous Claude Code sessions? No problem.
+```json
+{
+  "plugin": ["/absolute/path/to/cc-caffeine/opencode/cc-caffeine.mjs"]
+}
+```
 
-**Zero Configuration**: Install, run, forget. It's like coffee, but for your computer.
+Replace `/absolute/path/to/cc-caffeine` with wherever you cloned this repo.
 
-## 🎯 Use Cases That Will Change Your Life
+OpenCode picks up the plugin the next time it starts. Activity keeps the session alive, and the server releases sleep prevention after the idle timeout.
 
-### ☕ **The Coffee Shop Marathon**
-- 3 hours of focus without ever losing your connection
-- No more waking your screen every 5 minutes
-- Baristas will recognize you as "the developer who never sleeps"
-- Your productivity increases proportionally to your caffeine consumption
+## ⚙️ Configuration (Optional)
 
-### 🏠 **Flexible Remote Work**
-- Transform your balcony into an outdoor office
-- Code from the terrace in fresh air
-- No more choosing between "work" and "enjoy the sunshine"
-- Your boss will think you're working 24/7 (that's an advantage, right?)
+cc-caffeine works out of the box with **zero configuration** — the default
+Electron backend needs nothing. To change behavior, create a config file at:
 
-## 🛠️ Technical Features (With Style)
+```
+~/.claude/plugins/cc-caffeine/config.json
+```
 
-- **🎯 Session-Based Management**: Intelligently manages multiple simultaneous Claude Code sessions
-- **🔄 Auto-Cleanup**: Forget to disable - sessions automatically expire after 15 minutes without tool call or user input
-- **🚀 Headless**: Just an elegant discreet system tray icon
-- **⚡ Native Sleep Prevention**: Electron's power management - cross-platform sleep prevention
-- **🍎 Cross-Platform**: Works on macOS, Linux, and Windows (yes, even Windows!)
+The directory is created automatically on first run, but the file itself is not. Create it by hand and add only the settings you want. Every setting is optional and falls back to the default below.
 
-## 🎭 Claude Code Integration
+```json
+{
+  "session_timeout_minutes": 15,
+  "icon_theme": "orange",
+  "sleep_backend": "electron"
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
+| `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
+| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the MacOS `caffeinate` utility, no Electron, no tray) |
+
+### Manual Claude Code Hook Configuration
 
 Hooks will be configured automatically if you import the project as a Claude Code plugin.
 
@@ -122,51 +138,6 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
 }
 ```
 
-## 🎭 OpenCode Integration
-
-Using [OpenCode](https://opencode.ai) instead of (or alongside) Claude Code?
-cc-caffeine works there too, through a plugin instead of hooks.
-
-**Setup:** open (or create) `~/.config/opencode/opencode.json` and add the
-plugin:
-
-```json
-{
-  "plugin": ["/absolute/path/to/cc-caffeine/opencode/cc-caffeine.mjs"]
-}
-```
-
-Replace `/absolute/path/to/cc-caffeine` with wherever you cloned this repo.
-
-That's it. OpenCode picks up the plugin the next time it starts, and it
-behaves just like the Claude Code integration: activity keeps the session
-alive, and the server releases sleep prevention after the idle timeout.
-
-## ⚙️ Configuration (Optional)
-
-cc-caffeine works out of the box with **zero configuration** — the default
-Electron backend needs nothing. To change behavior, create a config file at:
-
-```
-~/.claude/plugins/cc-caffeine/config.json
-```
-
-The directory is created automatically on first run, but the file itself is not. Create it by hand and add only the settings you want. Every setting is optional and falls back to the default below.
-
-```json
-{
-  "session_timeout_minutes": 15,
-  "icon_theme": "orange",
-  "sleep_backend": "electron"
-}
-```
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
-| `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
-| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the MacOS `caffeinate` utility, no Electron, no tray) |
-
 ### Switching to the native backend
 
 Set `sleep_backend` to `"native"` to prevent sleep via the MacOS `caffeinate` utility instead of Electron. The server then runs as a plain Node process with no system tray — useful when you don't want Electron at all.
@@ -187,11 +158,10 @@ cc-caffeine uses an intelligent client-server approach:
 2. **System Server** (`server`) - Headless Electron app that monitors sessions and manages power
 3. **Communication** - JSON file with atomic locking for perfect coordination
 
-## 📋 Requirements
+## 📋 Local Development Requirements
 
-- Node.js >= 14.0.0 (your coffee of choice)
+- Node.js >= 18.0.0 (your coffee of choice)
 - Electron (included automatically, like sugar in your espresso)
-- A burning desire to code everywhere, all the time
 
 ## 🚀 Run without Claude Code
 
@@ -234,4 +204,4 @@ echo '{"session_id": "session-abcd"}' | node caffeine.js uncaffeinate
 
 ## 📄 License
 
-MIT - Use it, modify it, share it. Like good coffee, it's meant to be shared.
+MIT - Use it, modify it, share it. Copyright © 2025 Samuel Berthe.
