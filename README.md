@@ -4,6 +4,17 @@ _The successor to the now deprecated [samber/cc-caffeine](https://github.com/sam
 
 Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `cc-caffeine` keeps Claude Code and OpenCode harnesses awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
 
+## Features
+
+- Cross-platform support for MacOS, Linux, and Windows.
+- On MacOS it uses native functionality to stay awake (when configured).
+- Supports Claude Code and OpenCode.
+- Adds cross-platform menu bar tray indicator:
+
+​	![](./assets/icon-coffee-empty.png) - Harness is idle
+
+​	![](./assets/icon-coffee-full.png) - Harness is running
+
 ## 🎯 Installation
 
 Claude Code and OpenCode harnesses are both supported, and the installation method is different for each.
@@ -18,12 +29,6 @@ Add the repo as a Claude Code plugin marketplace, then install the plugin:
 ```
 
 Installing the plugin registers its hooks automatically, so no manual hook configuration is needed. The hooks run the plugin's own bundled `caffeine.js`(via `${CLAUDE_PLUGIN_ROOT}`), so no `npx` fetch is required.
-
-*cc-caffine status*:
-
-![](./assets/icon-coffee-empty.png) - Claude Code is idle
-
-![](./assets/icon-coffee-full.png) - Claude Code is working hard
 
 ### OpenCode Installation
 
@@ -140,7 +145,7 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
 
 ### Switching to the native backend
 
-Set `sleep_backend` to `"native"` to prevent sleep via the MacOS `caffeinate` utility instead of Electron. The server then runs as a plain Node process with no system tray — useful when you don't want Electron at all.
+On macOS only, you can set `sleep_backend` to `"native"` to prevent sleep using the native `caffeinate` utility instead of Electron. The server then runs as a plain Node process with no system tray. This is useful to avoid Electron as a dependency to keep the system awake.
 
 ```json
 {
@@ -148,15 +153,7 @@ Set `sleep_backend` to `"native"` to prevent sleep via the MacOS `caffeinate` ut
 }
 ```
 
-> The native backend relies on the `caffeinate` utility, which is available on macOS. The Electron backend remains the cross-platform default.
-
-## 💡 The Secret Sauce
-
-cc-caffeine uses an intelligent client-server approach:
-
-1. **Lightweight Client** (`caffeinate`/`uncaffeinate`) - No Electron loading, just fast JSON writes
-2. **System Server** (`server`) - Headless Electron app that monitors sessions and manages power
-3. **Communication** - JSON file with atomic locking for perfect coordination
+The Electron backend remains the cross-platform default.
 
 ## 📋 Local Development Requirements
 
@@ -192,16 +189,12 @@ echo '{"session_id": "session-abcd"}' | node caffeine.js uncaffeinate
 
 ## 💫 Fuel the Revolution
 
-- ⭐️ **Star this repo** - Your star powers the caffeine engine!
-- ☕️ **Buy me a coffee** - I'll literally use it to build more features while drinking actual coffee
-- 🚀 **Sponsor the revolution** - Help me defeat screen timeouts worldwide!
-
-[![💖 GitHub Sponsors](https://img.shields.io/github/sponsors/samber?style=for-the-badge)](https://github.com/sponsors/samber)
+- ⭐️ **Star this repo**
+- ☕️ **Buy me a coffee**
+- 🚀 **Sponsor the revolution**
 
 *Every sponsor gets a virtual high-five and the knowledge that somewhere, a developer is "coding" from a ski track because of you.* ✨
 
-**PS**: If you encounter bugs, remember that even the best coffee has some grounds sometimes. But most of the time, it works like thunder. ⚡☕
-
 ## 📄 License
 
-MIT - Use it, modify it, share it. Copyright © 2025 Samuel Berthe.
+MIT. Use it, modify it, share it. Copyright © 2025 Samuel Berthe.
