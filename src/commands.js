@@ -15,6 +15,7 @@ const {
 const { isServerRunningWithLock } = require('./pid');
 const { runServerProcessIfNotStarted } = require('./server');
 const { getConfig } = require('./config');
+const { getSleepBackend } = require('./backend');
 
 /**
  * Handle session commands with JSON input from Claude Code hooks
@@ -121,6 +122,7 @@ const handleStatus = async () => {
 
     console.error('=== CC-Caffeine Status ===');
     console.error(`Server Status: ${serverRunning ? '✅ Running' : '❌ Stopped'}`);
+    console.error(`Sleep Backend: ${getSleepBackend()}`);
     console.error(`Active Sessions: ${activeSessions.length}`);
 
     if (activeSessions.length > 0) {

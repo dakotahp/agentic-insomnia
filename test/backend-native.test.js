@@ -6,11 +6,16 @@ const loadBackend = () => {
   return require('../src/backend');
 };
 
-const loadBoth = () => {
+const loadBoth = ({ available = true } = {}) => {
   delete require.cache[require.resolve('../src/backend')];
   delete require.cache[require.resolve('../src/native')];
-  const backend = require('../src/backend');
   const native = require('../src/native');
+  native.setDependencies({
+    platform: 'darwin',
+    commandExists: () => available,
+    isSystemdBooted: () => true
+  });
+  const backend = require('../src/backend');
   return { backend, native };
 };
 
@@ -52,11 +57,35 @@ const mockElectron = () => {
   return calls;
 };
 
+test('getSleepBackend returns native when configured and available', () => {
+  mockConfig('native');
+  const { backend } = loadBoth({ available: true });
+
+  assert.strictEqual(backend.getSleepBackend(), 'native');
+});
+
+test('getSleepBackend falls back to electron with one warning when native is unavailable', t => {
+  const errors = t.mock.method(console, 'error', () => {});
+  mockConfig('native');
+  const { backend } = loadBoth({ available: false });
+
+  assert.strictEqual(backend.getSleepBackend(), 'electron');
+  assert.strictEqual(backend.getSleepBackend(), 'electron');
+  assert.strictEqual(errors.mock.callCount(), 1);
+});
+
+test('getSleepBackend returns electron when configured for electron', () => {
+  mockConfig('electron');
+  const { backend } = loadBoth({ available: true });
+
+  assert.strictEqual(backend.getSleepBackend(), 'electron');
+});
+
 test('enableCaffeine dispatches to the native backend when configured', () => {
   mockConfig('native');
   const { backend, native } = loadBoth();
-  const child = { killed: false, on: () => undefined, kill: () => undefined };
-  native.setSpawnFn(() => child);
+  const child = { killed: false, on: () => child, kill: () => undefined };
+  native.setDependencies({ spawn: () => child });
 
   const state = makeState();
   backend.enableCaffeine(state);
@@ -75,7 +104,7 @@ test('disableCaffeine dispatches to the native backend when configured', () => {
       child.killed = true;
     }
   };
-  native.setSpawnFn(() => child);
+  native.setDependencies({ spawn: () => child });
 
   const state = makeState();
   backend.enableCaffeine(state);
@@ -83,6 +112,19 @@ test('disableCaffeine dispatches to the native backend when configured', () => {
 
   assert.strictEqual(child.killed, true);
   assert.strictEqual(state.isCaffeinated, false);
+});
+
+test('enableCaffeine uses powerSaveBlocker when native is configured but unavailable', t => {
+  t.mock.method(console, 'error', () => {});
+  mockConfig('native');
+  const calls = mockElectron();
+  const { backend } = loadBoth({ available: false });
+
+  const state = makeState();
+  backend.enableCaffeine(state);
+
+  assert.strictEqual(state.powerSaveBlockerId, 1);
+  assert.deepStrictEqual(calls.start, ['prevent-app-suspension']);
 });
 
 test('enableCaffeine uses powerSaveBlocker for the electron backend', () => {
