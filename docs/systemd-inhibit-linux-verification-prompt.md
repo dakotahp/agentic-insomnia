@@ -238,9 +238,15 @@ If it exists:
    and run the caffeinate command with `PATH` set to that dir. `systemd-inhibit` is now not
    found. Expect a warning that names the Electron fallback. Electron may fail to start with
    this small `PATH`. That is fine: only the warning and the chosen backend matter here.
-9. Failure guard: run the server from a `systemd-run --user` unit (as in A8) so polkit denies
-   the lock. Expect one logged failure reason and no respawn every 5 seconds
-   (`pgrep -c -x systemd-inhibit` stays at 0 over 30 seconds).
+9. Failure guard: stop any running server. Make a temp dir with a fake `systemd-inhibit`
+   script that prints `Failed to inhibit: Access denied` to stderr and exits 1, and `chmod +x`
+   it. Run the server in the foreground with that dir first on `PATH`:
+   `PATH="$FAKE:$PATH" node caffeine.js server`. The background server throws away its logs,
+   so this must run in the foreground. In another shell, send a caffeinate hook. Expect exactly
+   one `Native sleep prevention disabled` line that includes `Access denied`, and no new
+   line over the next 30 seconds. Optional: repeat with the real binary under
+   `systemd-run --user --pty --working-directory="$PWD" node caffeine.js server` to see a
+   real polkit denial, if A8 showed one.
 10. Restore the original config and stop the server.
 
 ## Results file

@@ -1,6 +1,8 @@
 # Linux Native Backend: `systemd-inhibit`
 
-> Status: plan, not implemented. Target version: 0.6.0 (new capability, minor bump).
+> Status: implemented as 0.6.0 on branch `worktree-systemd-inhibit-plan`, pending Linux
+> validation. See `docs/systemd-inhibit-linux-final-phase.md`. `--no-ask-password` is left out
+> until check A2 confirms the flag exists.
 
 ## Verdict
 
