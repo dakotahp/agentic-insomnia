@@ -1,9 +1,10 @@
 # Native `caffeinate` Plan (macOS primary, Electron fallback)
 
-> Status: **plan, not yet implemented**. Decisions locked: tray is a config flag
-> (default **off** on macOS, **on** elsewhere); default flags `-i -d`; keep the
-> idle-timeout semantic. The OpenCode integration is tracked separately in
-> `docs/opencode-compatibility.md` and is **not** part of this effort.
+> Status: **historical, partly superseded.** The native backend shipped in 0.4.0 in a
+> different shape: a `sleep_backend` setting instead of a `tray` flag, and
+> `caffeinate -i` instead of `-i -d`. Linux support is planned in
+> `docs/systemd-inhibit-plan.md`. See `ARCHITECTURE.md` for the current design. The
+> OpenCode integration shipped separately in 0.5.0 and is not part of this effort.
 
 ## Goal
 
@@ -47,12 +48,16 @@ the `tray: off` path can be dependency-free on every OS.
    "keep the machine awake during long turns," `--what=sleep` is precise and
    sufficient. Usage mirrors `caffeinate`:
     ```bash
-    # hold until killed (server-owned lifetime, like the caffeinate child)
-   systemd-inhibit --what=sleep --who=cc-caffeine --why="long turn" --mode=block
+    # a command is required; the lock is held while that command runs
+   systemd-inhibit --what=sleep --who=cc-caffeine --why="long turn" --mode=block cat
     ```
-   `--mode=block` is strongest; `delay`/`weak` are softer. No command → holds
-   until SIGTERM/SIGINT or stdin EOF. Caveats: requires systemd as init; some
-   systems restrict inhibitors via `InhibitAllow=` in `logind.conf`.
+   `--mode=block` is strongest; `delay` and `block-weak` are softer. A command is
+   required: with no command, `systemd-inhibit` lists current locks and exits.
+   The lock is released when the command exits. `systemd-inhibit` ignores SIGINT.
+   On SIGTERM it exits, and its child gets SIGTERM too. It does not watch stdin,
+   but a child like `cat` exits on stdin EOF, which also ends the lock. Caveats:
+   requires systemd as init; polkit decides who may take a lock (by default,
+   allowed in active and inactive login sessions, admin approval outside one).
 - **Windows — `powercfg` / `SetThreadExecutionState`**. `powercfg /requests`
    inspects; the keep-awake primitive is the Win32 `SetThreadExecutionState`
    (`ES_SYSTEM_REQUIRED` + `ES_DISPLAY_REQUIRED`), which has no clean CLI — a
@@ -87,6 +92,7 @@ const { spawn } = require('child_process')
 const { getConfig } = require('./config')
 
 let child = null // native inhibit process
+let blockerId = null // Electron powerSaveBlocker id
 
 // Per-platform native "keep awake" command. Returns null when there is no
 // native tool (or the tray is requested, forcing the Electron path).
@@ -99,7 +105,9 @@ const nativeCommand = () => {
     case 'linux':
       return {
         cmd: 'systemd-inhibit',
-        args: ['--what=sleep', '--who=cc-caffeine', '--why=long turn', '--mode=block']
+        // needs a command to hold the lock; cat holds it until its stdin pipe closes
+        args: ['--what=sleep', '--who=cc-caffeine', '--why=long turn', '--mode=block', 'cat'],
+        stdio: ['pipe', 'ignore', 'ignore']
       }
     case 'win32':
       return null // no clean CLI; use Electron (see "Native tools per platform")
@@ -114,11 +122,12 @@ const enable = () => {
   const native = nativeCommand()
   if (native) {
     if (child) return
-    child = spawn(native.cmd, native.args, { stdio: 'ignore' })
+    child = spawn(native.cmd, native.args, { stdio: native.stdio || 'ignore' })
     child.on('exit', () => { child = null })
    } else {
+    if (blockerId !== null) return
     const { powerSaveBlocker } = require('./electron').getElectron()
-    powerSaveBlocker.start('prevent-app-suspension')
+    blockerId = powerSaveBlocker.start('prevent-app-suspension')
    }
 }
 
@@ -127,8 +136,10 @@ const disable = () => {
   if (native) {
     if (child) { child.kill(); child = null }
    } else {
+    if (blockerId === null) return
     const { powerSaveBlocker } = require('./electron').getElectron()
-    powerSaveBlocker.stopAll()
+    powerSaveBlocker.stop(blockerId)
+    blockerId = null
    }
 }
 
@@ -138,7 +149,7 @@ module.exports = { enable, disable, isNative, nativeCommand }
 Notes:
 - Native path: spawn the platform's inhibit tool (no `-t`/`-w` — the server owns
   its lifetime). Idempotent via the `child` guard.
-- Electron path: `powerSaveBlocker.start/stopAll` (current behavior).
+- Electron path: `powerSaveBlocker.start` and `powerSaveBlocker.stop(id)` (current behavior).
 - `nativeCommand()` is the single switch: returns a command for a native-capable
   platform with `tray: false`, else `null` → Electron.
 - **Phasing:** implement the `darwin` branch first (this fork's primary use case),
@@ -177,8 +188,9 @@ awake forever. Two options:
 - **B (robust):** tie the child to the server's lifetime so it auto-exits on
    server death. Per platform:
     - macOS: `caffeinate -w <serverPid> -i -d`
-    - Linux: `systemd-inhibit` already releases on SIGTERM/SIGINT/stdin-EOF, so a
-      clean SIGTERM on shutdown is enough; a `-w`-style guard isn't available.
+    - Linux: SIGTERM to `systemd-inhibit` releases the lock and ends its child.
+      For crash safety, run `cat` as the child with a stdin pipe from the server:
+      when the server dies, the pipe closes, `cat` exits, and the lock is released.
     - To disable on idle, kill the child directly; to re-enable, spawn a new one.
 
 Recommendation: start with **A** (kill on SIGINT/SIGTERM), add per-platform
@@ -200,7 +212,7 @@ Extend the existing `node --test` suite:
 - `src/pid.js` (PID/startup coordination) — unchanged.
 - `src/commands.js` (CLI) — unchanged; `caffeinate` still ensures the server runs.
 - `hooks/hooks.json` (Claude Code) — unchanged.
-- The OpenCode plugin — separate effort (`docs/opencode-compatibility.md`).
+- The OpenCode plugin: a separate effort, shipped in 0.5.0.
 
 ## Verification
 
