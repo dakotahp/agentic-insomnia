@@ -1,11 +1,8 @@
 {
   "name": "cc-caffeine",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Prevents your computer from sleeping while Claude Code works hard",
   "main": "caffeine.js",
-  "bin": {
-    "cc-caffeine": "./caffeine.js"
-  },
   "scripts": {
     "start": "npm run server",
     "caffeinate": "node caffeine.js caffeinate",
@@ -15,7 +12,8 @@
     "server": "npx electron caffeine.js server",
     "native-server": "node caffeine.js server",
     "test": "node --test",
-    "lint": "eslint --fix *.js src/*.js test/*.js opencode/*.mjs || echo 'eslint not installed'",
+    "lint": "eslint *.js src/*.js test/*.js opencode/*.mjs",
+    "lint:fix": "eslint --fix *.js src/*.js test/*.js opencode/*.mjs",
     "format": "prettier --write *.js src/*.js || echo 'prettier not installed'"
   },
   "keywords": [
@@ -46,11 +44,11 @@
     "prettier": "^3.9.6"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.12.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/samber/cc-caffeine.git"
+    "url": "https://github.com/dakotahp/cc-caffeine.git"
   },
   "os": [
     "darwin",
