@@ -118,12 +118,15 @@ reused by an unrelated process is not trusted.
 
 ### Running
 
-The server calls `startPolling(state, 5000, onStateChange)`. On each tick the poller:
+The server calls `startPolling(state, 5000, onStateChange, onOwnershipLost)`. On each tick the
+poller:
 
-1. removes expired sessions,
-2. counts active sessions,
-3. calls `enableCaffeine(state)` or `disableCaffeine(state)` if the answer changed,
-4. calls `onStateChange(state)` if a UI passed one in.
+1. checks that `server.pid` still names this server; if another server owns it, the poller
+   stops and calls `onOwnershipLost(state)` (see "Stopping"),
+2. removes expired sessions,
+3. counts active sessions,
+4. calls `enableCaffeine(state)` or `disableCaffeine(state)` if the answer changed,
+5. calls `onStateChange(state)` if a UI passed one in.
 
 `state` is a plain object that the server owns. Backends keep their handles on it, for example
 `powerSaveBlockerId` or `caffeinateProcess`.
@@ -132,6 +135,11 @@ The server calls `startPolling(state, 5000, onStateChange)`. On each tick the po
 
 `SIGINT`, `SIGTERM`, or the tray's Exit item call `shutdownServer(state)`. It stops polling,
 releases the sleep lock, destroys the tray, and removes the PID file.
+
+A server also stops when another server has replaced it. If a startup race ever leaves two
+servers running, only one owns `server.pid`. The other sees this on its next poll, runs
+`shutdownServer(state)`, and exits, so it cannot keep a tray icon or sleep lock forever. A
+missing or unreadable PID file does not count as replaced.
 
 ## Three concerns, kept apart
 
@@ -223,10 +231,13 @@ See the README for the settings.
 
 ## Testing
 
-Run `npm test` (Node's built-in `node --test`) and `npm run lint`.
+Run `npm test` (Node's built-in `node --test`) and `npm run lint`. `npm run lint` fails on
+violations; `npm run lint:fix` fixes what it can.
 
-CI runs the tests on Ubuntu with Node 18, 20, and 22. Tests must pass on every OS, so they
-never depend on the machine they run on:
+CI (`.github/workflows/ci.yml`) is one job on Ubuntu, on the Node version in `.node-version`.
+It checks that `package.json` and `.claude-plugin/plugin.json` have the same version, then runs
+lint, the tests, and `node caffeine.js version`. Tests must pass on every OS, so they never
+depend on the machine they run on:
 
 - `native.js` takes its dependencies through `setDependencies({ spawn, platform,
   commandExists, isSystemdBooted, now })`. Tests pass a fake child process, a fixed platform,
