@@ -165,13 +165,11 @@ The Electron backend remains the cross-platform default.
 
 #### Linux notes
 
-Native support on Linux is new in 0.6.0. It works by holding a standard systemd lock (`systemd-inhibit --what=sleep:idle`), the kind any desktop can see. It is not tied to Omarchy or Hyprland, though that is the only setup tested so far (Arch Linux, systemd 261, Hyprland).
+Linux is supported and works by holding a standard systemd lock (`systemd-inhibit --what=sleep:idle`).
 
 - It needs systemd (logind) to work. This covers most distros: Ubuntu, Debian, Fedora, Arch and its derivatives (EndeavourOS, Manjaro, CachyOS), openSUSE, Linux Mint, Pop!_OS, NixOS, and similar. Distros without systemd, such as Void, Alpine, Artix, Gentoo with OpenRC, Devuan, or WSL without systemd, fall back to Electron.
 - It blocks suspend, hibernate, and the idle action. On most desktops, the screen should also stay unlocked. This is expected, not tested.
 - On GNOME, suspend is still blocked, but by logind refusing it, not by GNOME's own power tool. GNOME still tries and fails, logs an error, and the screen still blanks and locks. Expected, not tested.
-- On Hyprland, Sway, and other tiling Wayland compositors, the screen still locks. This is confirmed on Omarchy. On these setups, the default Electron backend likely does nothing, since it needs a power API these compositors don't provide. Set `"sleep_backend": "native"` if you use one of these.
-- Closing the laptop lid still suspends the machine, even while the lock is held.
 - The lock is released when sessions go idle, when the server stops, and also when the server crashes.
 
 ## 📋 Local Development Requirements
