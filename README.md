@@ -7,13 +7,13 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
 ## Features
 
 - Cross-platform support for MacOS, Linux, and Windows.
-- On MacOS and Linux it can use the OS's own sleep tool to stay awake, without Electron (when configured).
+  - On MacOS and Linux it can use the OS's own sleep tool to stay awake, without Electron (when configured).
 - Supports Claude Code and OpenCode.
 - Adds cross-platform menu bar tray indicator:
 
-​	![](./assets/icon-coffee-empty.png) - Harness is idle
+​	![](./assets/icon-coffee-empty.png) Harness is idle
 
-​	![](./assets/icon-coffee-full.png) - Harness is running
+​	![](./assets/icon-coffee-full.png) Harness is running
 
 ## 🎯 Installation
 
@@ -165,15 +165,11 @@ The Electron backend remains the cross-platform default.
 
 #### Linux notes
 
-Native support on Linux is new in 0.6.0. It was tested on Omarchy (Arch Linux) with systemd 261 and Hyprland. Other distros and desktops are not tested yet.
+Native support on Linux is new in 0.6.0. It was tested on Omarchy (Arch Linux) with systemd 261 and Hyprland. Other distros may work if they use `systemd`.
 
-- It needs systemd (logind). Distros without it, such as Void, Alpine, Artix, or WSL without systemd, fall back to Electron.
+- The distro needs systemd (logind) to work. Distros without it, such as Void, Alpine, Artix, or WSL without systemd, fall back to Electron.
 - It blocks suspend, hibernate, and logind's idle action. The screen can still blank and lock, the same as with the Electron backend.
-- Closing the lid can still suspend the machine.
-- It works from a normal login session, such as a desktop terminal or tmux. Processes started outside a login session may be denied the lock, depending on the distro's polkit rules.
-- If the lock is denied after the server starts, the server logs the reason and keeps running without sleep prevention. It does not switch to Electron. To see the log, run the server in the foreground with `node caffeine.js server`.
 - The lock is released when sessions go idle, when the server stops, and also when the server crashes.
-- While the lock is held, `systemd-inhibit --list` shows a `cc-caffeine` entry.
 
 ## 📋 Local Development Requirements
 
@@ -182,7 +178,7 @@ Native support on Linux is new in 0.6.0. It was tested on Omarchy (Arch Linux) w
 
 ## 🛠 Contributing
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together, how the tests work, and how to add a sleep backend.
+See [architecture documentation](ARCHITECTURE.md) for how the pieces fit together, how the tests work, and how to add a sleep backend.
 
 ## 🚀 Run without Claude Code
 
