@@ -5,26 +5,6 @@ All notable changes to cc-caffeine are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] - 2026-09-13
-
-### Added
-
-- **Windows support for the native backend**: with `sleep_backend: "native"` on
-  Windows 10 or 11, the server runs the built-in Windows PowerShell, which holds
-  a system-required power request (`PowerCreateRequest` and `PowerSetRequest`,
-  the same API Electron uses). The request is released when sessions go idle,
-  when the server stops, and when the server process dies. Not yet validated on
-  many machines.
-
-### Changed
-
-- Users who set `sleep_backend: "native"` on Windows previously got the Electron
-  backend with a warning. They now get the native backend, with no tray icon.
-- On Windows, the running-server check trusts a fresh `server.heartbeat` instead
-  of starting PowerShell on every hook. Servers write the heartbeat with their
-  PID and refresh it on every poll. This removes about a second of delay per
-  hook on Windows, for both backends.
-
 ## [0.6.1] - 2026-09-13
 
 ### Fixed
