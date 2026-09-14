@@ -259,5 +259,6 @@ lock. Check those by hand and describe what you checked in the pull request.
 3. Wire it into `getSleepBackend()` and the dispatch in `backend.js`.
 4. If it does not need Electron, reuse the plain Node server path in `server.js`.
 5. Add tests with injected dependencies and a fixed platform.
-6. Update the README config table, this file, `AGENTS.md`, and `CHANGELOG.md`. Bump the version
-   in both `package.json` and `.claude-plugin/plugin.json`.
+6. Update the README config table, this file, and `AGENTS.md`. Use a `feat:` commit message.
+   release-please then bumps the version and writes the changelog entry. Do not edit either by
+   hand.
