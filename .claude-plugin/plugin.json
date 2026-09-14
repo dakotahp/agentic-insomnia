@@ -1,6 +1,6 @@
 {
     "name": "cc-caffeine",
-    "description": "Prevents your computer from sleeping while Claude Code works hard",
+    "description": "Prevents your laptop from sleeping while the harness is working.",
     "version": "0.6.1",
     "author": {
         "name": "Dakotah Peña",
@@ -12,6 +12,8 @@
     "keywords": [
         "claude-code",
         "claude-code-plugin",
+        "open-code",
+        "open-code-plugin",
         "plugin",
         "nap",
         "sleep",
