@@ -66,6 +66,19 @@ const runServerProcessIfNotStarted = async () => {
 };
 
 /**
+ * Spawn options for the detached `npm run` that starts the server
+ * @param {string} platform - Value of process.platform
+ */
+const serverSpawnOptions = platform => ({
+  detached: true,
+  stdio: 'ignore',
+  // On Windows npm is npm.cmd, which Node only runs through a shell. The
+  // arguments are fixed strings, so the shell cannot inject anything.
+  shell: platform === 'win32',
+  windowsHide: true
+});
+
+/**
  * Start server process using npm
  */
 const startServerProcess = async () => {
@@ -80,8 +93,7 @@ const startServerProcess = async () => {
   const script = getSleepBackend() === 'native' ? 'native-server' : 'server';
 
   const serverProcess = spawn('npm', ['run', script], {
-    detached: true,
-    stdio: 'ignore',
+    ...serverSpawnOptions(process.platform),
     cwd, // is needed to find the correct caffeine.js
     env
   });
@@ -293,5 +305,6 @@ const spawnElectronProcess = () => {
 
 module.exports = {
   handleServer,
-  runServerProcessIfNotStarted
+  runServerProcessIfNotStarted,
+  serverSpawnOptions
 };

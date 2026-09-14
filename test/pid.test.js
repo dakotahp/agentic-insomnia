@@ -113,6 +113,52 @@ test('isServerRunning is false when no PID file exists', async () => {
   assert.strictEqual(await isServerRunning(), false);
 });
 
+test('commandLineQuery uses ps with untruncated output on macOS and Linux', () => {
+  makeTempHome();
+  const { commandLineQuery } = loadPid();
+
+  for (const platform of ['darwin', 'linux']) {
+    assert.deepStrictEqual(commandLineQuery(4242, platform), {
+      cmd: 'ps',
+      args: ['-ww', '-p', '4242', '-o', 'command=']
+    });
+  }
+});
+
+test('commandLineQuery uses PowerShell CIM instead of wmic on Windows', () => {
+  makeTempHome();
+  const { commandLineQuery } = loadPid();
+
+  const originalRoot = process.env.SystemRoot;
+  process.env.SystemRoot = 'D:\\Win';
+  try {
+    const { cmd, args } = commandLineQuery(4242, 'win32');
+
+    assert.strictEqual(cmd, 'D:\\Win\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
+    assert.deepStrictEqual(args, [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      '(Get-CimInstance Win32_Process -Filter \'ProcessId=4242\').CommandLine'
+    ]);
+  } finally {
+    if (originalRoot === undefined) {
+      delete process.env.SystemRoot;
+    } else {
+      process.env.SystemRoot = originalRoot;
+    }
+  }
+});
+
+test('commandLineQuery only ever embeds an integer PID', () => {
+  makeTempHome();
+  const { commandLineQuery } = loadPid();
+
+  const { args } = commandLineQuery('1\'; Remove-Item x; \'', 'win32');
+
+  assert.ok(!args[3].includes('Remove-Item'));
+});
+
 test('validatePid recognizes a native node caffeine server', async () => {
   makeTempHome();
   const { spawn } = require('child_process');

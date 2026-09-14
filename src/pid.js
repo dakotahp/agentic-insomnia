@@ -121,6 +121,42 @@ const removePidFile = async () => {
 };
 
 /**
+ * Build the command that prints a process's full command line
+ * @param {number} pid - Process ID to inspect
+ * @param {string} platform - Value of os.platform()
+ * @returns {{cmd: string, args: string[]}}
+ */
+const commandLineQuery = (pid, platform) => {
+  const safePid = String(Math.trunc(Number(pid)));
+
+  if (platform === 'win32') {
+    // wmic is removed from current Windows 11 releases, so query WMI through the
+    // PowerShell that ships with Windows. The absolute path avoids PATH lookups.
+    const powershell = path.win32.join(
+      process.env.SystemRoot || 'C:\\Windows',
+      'System32',
+      'WindowsPowerShell',
+      'v1.0',
+      'powershell.exe'
+    );
+    return {
+      cmd: powershell,
+      args: [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `(Get-CimInstance Win32_Process -Filter 'ProcessId=${safePid}').CommandLine`
+      ]
+    };
+  }
+
+  // -ww disables ps's column truncation. Without it the command line is cut
+  // at the terminal width, and long install paths (npx cache dirs are well
+  // over 80 characters) lose the "caffeine.js server" suffix matched below.
+  return { cmd: 'ps', args: ['-ww', '-p', safePid, '-o', 'command='] };
+};
+
+/**
  * Check if a process with given PID exists and is a caffeine server
  * @param {number} pid - Process ID to check
  * @returns {Promise<boolean>} True if process exists and is caffeine server
@@ -140,15 +176,8 @@ const validatePid = async pid => {
     }
 
     // Process exists, now check if it's a caffeine server
-    const isWindows = os.platform() === 'win32';
-    const psCommand = isWindows
-      ? spawn('wmic', ['process', 'where', `processid=${pid}`, 'get', 'commandline'], {
-        stdio: 'pipe'
-      })
-      : // -ww disables ps's column truncation. Without it the command line is cut
-    // at the terminal width, and long install paths (npx cache dirs are well
-    // over 80 characters) lose the "caffeine.js server" suffix matched below.
-      spawn('ps', ['-ww', '-p', String(pid), '-o', 'command='], { stdio: 'pipe' });
+    const { cmd, args } = commandLineQuery(pid, os.platform());
+    const psCommand = spawn(cmd, args, { stdio: 'pipe', windowsHide: true });
 
     let output = '';
 
@@ -264,6 +293,7 @@ module.exports = {
   removePidFileWithLock,
   removePidFile,
   isPidFileOwnedByOther,
+  commandLineQuery,
   validatePid,
   isServerRunningWithLock,
   isServerRunning,

@@ -5,6 +5,18 @@ All notable changes to cc-caffeine are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-09-13
+
+### Fixed
+
+- **Server auto-start on Windows**: clients now run `npm` through a shell on
+  Windows. `npm` is `npm.cmd` there, and Node refuses to spawn `.cmd` files
+  without a shell, so the server never started from a hook.
+- **Server detection on Windows**: the "is a caffeine server running?" check
+  reads the process command line with PowerShell `Get-CimInstance` instead of
+  `wmic`, which is removed from current Windows 11 releases. Without it, every
+  client treated a running server as stopped.
+
 ## [0.6.0] - 2026-09-12
 
 ### Added
