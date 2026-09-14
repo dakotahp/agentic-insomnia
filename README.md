@@ -7,7 +7,7 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
 ## Features
 
 - Cross-platform support for MacOS, Linux, and Windows.
-  - On MacOS and Linux it can use the OS's own sleep tool to stay awake, without Electron (when configured).
+  - On MacOS, Linux, and Windows it can use the OS's own sleep tool to stay awake, without Electron (when configured).
 - Supports Claude Code and OpenCode.
 - Adds cross-platform menu bar tray indicator:
 
@@ -70,7 +70,7 @@ The directory is created automatically on first run, but the file itself is not.
 |---------|---------|-------------|
 | `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
 | `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
-| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS sleep tool: `caffeinate` on MacOS, `systemd-inhibit` on Linux; no Electron, no tray) |
+| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS sleep tool: `caffeinate` on MacOS, `systemd-inhibit` on Linux, a PowerShell power request on Windows; no Electron, no tray) |
 
 ### Manual Claude Code Hook Configuration
 
@@ -157,9 +157,10 @@ Set `sleep_backend` to `"native"` to prevent sleep with your operating system's 
 |----|-----------|
 | MacOS | `caffeinate -i` |
 | Linux (systemd) | `systemd-inhibit --what=sleep:idle --mode=block` |
+| Windows 10 and 11 | The built-in Windows PowerShell, holding a system power request |
 | Anything else | None. cc-caffeine logs a warning and uses the Electron backend. |
 
-Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(cat ~/.claude/plugins/cc-caffeine/server.pid)"`. The next hook starts a new server.
+Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(cat ~/.claude/plugins/cc-caffeine/server.pid)"`, or on Windows in PowerShell: `Stop-Process -Id (Get-Content "$HOME\.claude\plugins\cc-caffeine\server.pid")`. The next hook starts a new server.
 
 The Electron backend remains the cross-platform default.
 
@@ -171,6 +172,18 @@ Linux is supported and works by holding a standard systemd lock (`systemd-inhibi
 - It blocks suspend, hibernate, and the idle action. On most desktops, the screen should also stay unlocked. This is expected, not tested.
 - On GNOME, suspend is still blocked, but by logind refusing it, not by GNOME's own power tool. GNOME still tries and fails, logs an error, and the screen still blanks and locks. Expected, not tested.
 - The lock is released when sessions go idle, when the server stops, and also when the server crashes.
+
+#### Windows notes
+
+Windows has no command like `caffeinate`, so cc-caffeine starts the Windows PowerShell that comes with Windows 10 and 11. PowerShell holds a system power request, the same kind Electron uses. Windows support is new and not yet tested on many machines.
+
+- While a session is active, `powercfg /requests` (in an administrator terminal) lists `cc-caffeine: Claude Code session active`.
+- The request is released when sessions go idle, when the server stops, and also when the server crashes.
+- PowerShell takes a second or two to start each time sessions become active. Hooks do not wait for it. If it is too slow on your machine, use `"electron"`.
+- On laptops with Modern Standby, when on battery, Windows ends the request 5 minutes after your "sleep after" time. When plugged in, there is no limit. The Electron backend has the same limit.
+- Closing the lid, pressing the power button, or choosing Sleep still puts the computer to sleep.
+- The screen can still turn off and lock.
+- Some managed work computers block PowerShell from calling Windows functions (Constrained Language Mode). The server then logs the reason once and does not prevent sleep. Use `"electron"` on those computers.
 
 ## 📋 Local Development Requirements
 

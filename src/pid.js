@@ -14,14 +14,29 @@ const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
 const lockfile = require('proper-lockfile');
+const { windowsPowerShellPath } = require('./native');
 
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'cc-caffeine');
 const PID_FILE = path.join(CONFIG_DIR, 'server.pid');
 const STARTUP_FILE = path.join(CONFIG_DIR, 'server.starting');
+const HEARTBEAT_FILE = path.join(CONFIG_DIR, 'server.heartbeat');
 
 // A server only writes its PID once Electron has booted, which takes seconds.
 // Long enough to cover that window, short enough to retry a failed startup.
 const STARTUP_GRACE_MS = 30 * 1000;
+
+// Polls refresh the heartbeat every 5 seconds, but an Electron server writes its
+// PID before Electron is ready and polling starts.
+const HEARTBEAT_STALE_MS = 30 * 1000;
+
+let deps = {
+  platform: os.platform(),
+  now: Date.now
+};
+
+const setDependencies = overrides => {
+  deps = { ...deps, ...overrides };
+};
 
 const withPidLock = async fn => {
   // create if not exists
@@ -64,6 +79,34 @@ const writePidFile = async pid => {
     } else {
       throw error;
     }
+  }
+  await writeHeartbeat(pid);
+};
+
+/**
+ * Record that the server with this PID is alive
+ * @param {number} pid - Process ID of the server
+ */
+const writeHeartbeat = async pid => {
+  await fs.promises.writeFile(HEARTBEAT_FILE, pid.toString(), 'utf8');
+};
+
+/**
+ * Check whether the server with this PID refreshed its heartbeat recently
+ * @param {number} pid - Process ID named in the PID file
+ * @returns {Promise<boolean>}
+ */
+const isHeartbeatFresh = async pid => {
+  try {
+    const [content, stats] = await Promise.all([
+      fs.promises.readFile(HEARTBEAT_FILE, 'utf8'),
+      fs.promises.stat(HEARTBEAT_FILE)
+    ]);
+    return (
+      parseInt(content.trim(), 10) === pid && deps.now() - stats.mtimeMs < HEARTBEAT_STALE_MS
+    );
+  } catch {
+    return false;
   }
 };
 
@@ -117,6 +160,7 @@ const removePidFile = async () => {
   const pid = await readPidFile();
   if (pid === process.pid) {
     await fs.promises.unlink(PID_FILE);
+    await fs.promises.rm(HEARTBEAT_FILE, { force: true });
   }
 };
 
@@ -132,15 +176,8 @@ const commandLineQuery = (pid, platform) => {
   if (platform === 'win32') {
     // wmic is removed from current Windows 11 releases, so query WMI through the
     // PowerShell that ships with Windows. The absolute path avoids PATH lookups.
-    const powershell = path.win32.join(
-      process.env.SystemRoot || 'C:\\Windows',
-      'System32',
-      'WindowsPowerShell',
-      'v1.0',
-      'powershell.exe'
-    );
     return {
-      cmd: powershell,
+      cmd: windowsPowerShellPath(),
       args: [
         '-NoProfile',
         '-NonInteractive',
@@ -162,21 +199,32 @@ const commandLineQuery = (pid, platform) => {
  * @returns {Promise<boolean>} True if process exists and is caffeine server
  */
 const validatePid = async pid => {
-  return new Promise(resolve => {
-    // First check if process exists
-    try {
-      process.kill(pid, 0); // Signal 0 just checks if process exists
-    } catch (error) {
-      if (error.code === 'ESRCH') {
-        // Process doesn't exist
-        resolve(false);
-        return;
-      }
-      // Other errors (like EPERM) mean process exists but we can't signal it
+  try {
+    process.kill(pid, 0); // Signal 0 just checks if process exists
+  } catch (error) {
+    if (error.code === 'ESRCH') {
+      return false;
     }
+    // Other errors (like EPERM) mean process exists but we can't signal it
+  }
 
-    // Process exists, now check if it's a caffeine server
-    const { cmd, args } = commandLineQuery(pid, os.platform());
+  // Reading a command line on Windows starts PowerShell, which takes about a
+  // second, and hooks run this check on every tool call.
+  if (deps.platform === 'win32' && (await isHeartbeatFresh(pid))) {
+    return true;
+  }
+
+  return commandLineIsCaffeineServer(pid);
+};
+
+/**
+ * Check whether a running process's command line is a caffeine server
+ * @param {number} pid - Process ID to inspect
+ * @returns {Promise<boolean>}
+ */
+const commandLineIsCaffeineServer = pid => {
+  return new Promise(resolve => {
+    const { cmd, args } = commandLineQuery(pid, deps.platform);
     const psCommand = spawn(cmd, args, { stdio: 'pipe', windowsHide: true });
 
     let output = '';
@@ -293,8 +341,12 @@ module.exports = {
   removePidFileWithLock,
   removePidFile,
   isPidFileOwnedByOther,
+  writeHeartbeat,
+  isHeartbeatFresh,
   commandLineQuery,
   validatePid,
+  setDependencies,
+  HEARTBEAT_STALE_MS,
   isServerRunningWithLock,
   isServerRunning,
   isStartupInProgress,

@@ -36,6 +36,7 @@ flowchart LR
   B --> E[Electron powerSaveBlocker]
   B --> M[macOS caffeinate]
   B --> L[Linux systemd-inhibit]
+  B --> W[Windows PowerShell power request]
 ```
 
 ## Repository layout
@@ -45,11 +46,11 @@ flowchart LR
 | `caffeine.js` | Entry point. Routes `caffeinate`, `uncaffeinate`, `server`, `status`, `version`. |
 | `src/commands.js` | Client commands: read the hook's JSON from stdin, update the session file, start the server. |
 | `src/session.js` | The session file: add, remove, expire, read. Every access is locked. |
-| `src/pid.js` | The server PID file, the startup marker, and "is a real server running?" checks. |
+| `src/pid.js` | The server PID file, heartbeat, startup marker, and "is a real server running?" checks. |
 | `src/server.js` | Starts the server, as an Electron app or as a plain Node process. |
 | `src/poller.js` | **Decision**: when to hold or release the sleep lock. |
 | `src/backend.js` | **Mechanism** seam: picks a backend and dispatches to it. |
-| `src/native.js` | Native backend: `caffeinate` on macOS, `systemd-inhibit` on Linux. |
+| `src/native.js` | Native backend: `caffeinate` on macOS, `systemd-inhibit` on Linux, a PowerShell power request on Windows. |
 | `src/system-tray.js` | **UI**: the tray icon and its Exit menu. Also owns server shutdown. |
 | `src/electron.js` | Loads Electron only when it is needed. |
 | `src/config.js` | Reads `~/.claude/plugins/cc-caffeine/config.json` once and caches it. |
@@ -113,8 +114,14 @@ guarded so only one of them starts a server:
 4. The server takes the same lock and writes its own PID.
 
 "Is a server running?" means more than "the PID is alive". `pid.js` also reads that process's
-command line (`ps -ww`, or `wmic` on Windows) and checks that it is a caffeine server. A PID
-reused by an unrelated process is not trusted.
+command line (`ps -ww`, or PowerShell `Get-CimInstance` on Windows) and checks that it is a
+caffeine server. A PID reused by an unrelated process is not trusted.
+
+On Windows, starting PowerShell takes about a second, and hooks run this check on every tool
+call. So on Windows a live PID with a fresh `server.heartbeat` counts as running, and the command
+line is not read. The server writes the heartbeat together with its PID and refreshes it on every
+poll. A heartbeat that names another PID, or is older than 30 seconds, is ignored, and the check
+falls back to the command line.
 
 ### Running
 
@@ -123,10 +130,11 @@ poller:
 
 1. checks that `server.pid` still names this server; if another server owns it, the poller
    stops and calls `onOwnershipLost(state)` (see "Stopping"),
-2. removes expired sessions,
-3. counts active sessions,
-4. calls `enableCaffeine(state)` or `disableCaffeine(state)` if the answer changed,
-5. calls `onStateChange(state)` if a UI passed one in.
+2. refreshes `server.heartbeat`,
+3. removes expired sessions,
+4. counts active sessions,
+5. calls `enableCaffeine(state)` or `disableCaffeine(state)` if the answer changed,
+6. calls `onStateChange(state)` if a UI passed one in.
 
 `state` is a plain object that the server owns. Backends keep their handles on it, for example
 `powerSaveBlockerId` or `caffeinateProcess`.
@@ -134,7 +142,7 @@ poller:
 ### Stopping
 
 `SIGINT`, `SIGTERM`, or the tray's Exit item call `shutdownServer(state)`. It stops polling,
-releases the sleep lock, destroys the tray, and removes the PID file.
+releases the sleep lock, destroys the tray, and removes the PID file and heartbeat.
 
 A server also stops when another server has replaced it. If a startup race ever leaves two
 servers running, only one owns `server.pid`. The other sees this on its next poll, runs
@@ -163,6 +171,7 @@ The poller and the tray used to import each other. Two small injections break th
 | Electron | `"electron"` (default) | `powerSaveBlocker.start('prevent-app-suspension')` | Electron | Yes |
 | Native, macOS | `"native"` | child process `caffeinate -i` | Node | No |
 | Native, Linux | `"native"` | child process `systemd-inhibit ... cat` | Node | No |
+| Native, Windows | `"native"` | child process `powershell.exe` holding a power request | Node | No |
 
 ### Choosing a backend
 
@@ -173,8 +182,10 @@ The poller and the tray used to import each other. Two small injections break th
 - Otherwise: log a warning and use `electron`.
 
 `isAvailable()` looks for `caffeinate` on `PATH` on macOS. On Linux it needs both
-`/run/systemd/system` (the machine booted with systemd) and `systemd-inhibit` on `PATH`. Every
-other platform returns false.
+`/run/systemd/system` (the machine booted with systemd) and `systemd-inhibit` on `PATH`. On
+Windows it checks that `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` exists. It
+does not start PowerShell, because clients call it on every hook. Every other platform returns
+false.
 
 The client uses the same function to pick which server script to spawn. The server uses it to
 dispatch. Caching keeps those two answers the same for the life of the process.
@@ -188,6 +199,11 @@ Without this guard, the poller would respawn a failing process every 5 seconds.
 
 A tool that exits later, after running normally, is treated as a normal stop. The next poll
 starts it again.
+
+The 2 second rule does not fit Windows, because PowerShell can take longer than that to start and
+fail. There, the script prints `ready` once it holds the power request. An exit before `ready` is a
+failure no matter how long it took. A script that prints nothing for 15 seconds is killed and
+recorded as a failure. An exit after `ready` is a normal stop.
 
 The server does not switch to Electron after a failure at runtime. That would mean restarting
 as a different kind of process.
@@ -223,6 +239,49 @@ Known limits:
   systemd 261, Hyprland. A desktop idle screen lock that uses Wayland idle inhibitors still
   locks the screen.
 
+### The Windows backend in detail
+
+Windows has no sleep command. The server runs the Windows PowerShell 5.1 that ships with Windows
+10 and 11, by its absolute path (`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`),
+with `-NoLogo -NoProfile -NonInteractive -Command <script>`, all stdio piped, and the window
+hidden.
+
+The script:
+
+1. declares `PowerCreateRequest` and `PowerSetRequest` from `kernel32.dll` through .NET
+   reflection,
+2. creates a power request with the reason `cc-caffeine: Claude Code session active` and sets
+   `PowerRequestSystemRequired`,
+3. prints `ready`,
+4. reads stdin until it closes.
+
+- **Normal release**: the server kills PowerShell. Windows closes the request handle when the
+  process exits, which ends the request.
+- **Crash release**: Windows does not end a child process when its parent dies. If the server
+  dies, the OS closes the stdin pipe, `ReadToEnd()` returns, and PowerShell exits. This is the
+  same idea as `cat` in the Linux backend.
+
+Why it is shaped this way:
+
+- Electron's `powerSaveBlocker` uses the same `PowerCreateRequest` and `PowerSetRequest` API on
+  Windows, so both backends behave alike.
+- Reflection instead of `Add-Type`: `Add-Type` starts the C# compiler, which is slower and more
+  likely to alarm antivirus software.
+- No double quotes in the script, so it passes through Windows command-line quoting unchanged.
+- `-Command` instead of a `.ps1` file: `-Command` is not subject to the execution policy, so no
+  `-ExecutionPolicy Bypass` is needed.
+
+Known limits:
+
+- On Modern Standby laptops on battery, Windows ends the request 5 minutes after the sleep
+  timeout. Electron has the same limit.
+- Closing the lid, pressing the power button, or choosing Sleep ends all power requests.
+- Does not keep the display on, the same as Electron's `prevent-app-suspension`.
+- Constrained Language Mode (AppLocker, WDAC) blocks the reflection calls. The script fails
+  before `ready`, and the failure is logged once.
+- `powercfg /requests` shows the reason while the request is held. It needs an administrator
+  terminal.
+
 ## Configuration
 
 `config.js` merges `~/.claude/plugins/cc-caffeine/config.json` over its defaults and caches
@@ -240,8 +299,11 @@ lint, the tests, and `node caffeine.js version`. Tests must pass on every OS, so
 depend on the machine they run on:
 
 - `native.js` takes its dependencies through `setDependencies({ spawn, platform,
-  commandExists, isSystemdBooted, now })`. Tests pass a fake child process, a fixed platform,
-  and a fake clock.
+  commandExists, isSystemdBooted, fileExists, now })`. Tests pass a fake child process, a fixed
+  platform, and a fake clock. The Windows ready timeout uses `setTimeout`, which tests replace
+  with `t.mock.timers`.
+- `pid.js` takes `setDependencies({ platform, now })`, so the Windows heartbeat check runs on
+  any OS.
 - Modules that read config or Electron are replaced in `require.cache` before the module
   under test loads. See `test/backend-native.test.js`.
 - Each test reloads the module under test, so cached state (like the resolved backend) starts

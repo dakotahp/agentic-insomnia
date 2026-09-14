@@ -2,8 +2,9 @@
  * Native backend - Prevents sleep with the OS sleep tool, without Electron.
  *
  * macOS runs `caffeinate`. Linux runs `systemd-inhibit`, which holds a logind
- * sleep lock for as long as its child command runs. The child process is stored
- * on the state object and killed on disable/shutdown.
+ * sleep lock for as long as its child command runs. Windows runs the built-in
+ * PowerShell, which holds a kernel power request until it exits. The child
+ * process is stored on the state object and killed on disable/shutdown.
  *
  * Dependencies are injectable (`setDependencies`) so the backend can be tested
  * on any OS without spawning real processes.
@@ -14,6 +15,10 @@ const fs = require('fs');
 const path = require('path');
 
 const EARLY_EXIT_MS = 2000;
+const READY_TIMEOUT_MS = 15000;
+const READY_LINE = 'ready';
+const POWER_REQUEST_REASON = 'cc-caffeine: Claude Code session active';
+const POWER_REQUEST_SYSTEM_REQUIRED = 1;
 
 const commandOnPath = name =>
   (process.env.PATH || '')
@@ -28,16 +33,66 @@ const commandOnPath = name =>
       }
     });
 
+const windowsPowerShellPath = () =>
+  path.win32.join(
+    process.env.SystemRoot || 'C:\\Windows',
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe'
+  );
+
 let deps = {
   spawn,
   platform: process.platform,
   commandExists: commandOnPath,
   isSystemdBooted: () => fs.existsSync('/run/systemd/system'),
+  fileExists: fs.existsSync,
   now: Date.now
 };
 
 const setDependencies = overrides => {
   deps = { ...deps, ...overrides };
+};
+
+const psString = value => `'${value}'`;
+
+// Declared through reflection rather than Add-Type, which starts the C# compiler.
+// The script has no double quotes so it survives Windows command-line quoting.
+const windowsPowerRequestScript = () => {
+  const marshal = '[Runtime.InteropServices.Marshal]';
+  const pinvoke = (name, returnType, parameterTypes) =>
+    `$type.DefinePInvokeMethod(${psString(name)}, ${psString('kernel32.dll')}, ` +
+    `[Reflection.MethodAttributes]${psString('Public, Static')}, ` +
+    '[Reflection.CallingConventions]::Standard, ' +
+    `${returnType}, [Type[]]@(${parameterTypes}), ` +
+    '[Runtime.InteropServices.CallingConvention]::Winapi, ' +
+    '[Runtime.InteropServices.CharSet]::Unicode)';
+
+  return [
+    `$ErrorActionPreference = ${psString('Stop')}`,
+    '$assembly = [AppDomain]::CurrentDomain.DefineDynamicAssembly(' +
+      `(New-Object Reflection.AssemblyName ${psString('CcCaffeine')}), ` +
+      '[Reflection.Emit.AssemblyBuilderAccess]::Run)',
+    `$type = $assembly.DefineDynamicModule(${psString('CcCaffeine')})` +
+      `.DefineType(${psString('Power')}, [Reflection.TypeAttributes]${psString('Public, Class')})`,
+    `$create = ${pinvoke('PowerCreateRequest', '[IntPtr]', '[IntPtr]')}`,
+    '$create.SetImplementationFlags([Reflection.MethodImplAttributes]::PreserveSig)',
+    `$set = ${pinvoke('PowerSetRequest', '[bool]', '[IntPtr], [int]')}`,
+    '$set.SetImplementationFlags([Reflection.MethodImplAttributes]::PreserveSig)',
+    '$power = $type.CreateType()',
+    // REASON_CONTEXT: Version (0), Flags (POWER_REQUEST_CONTEXT_SIMPLE_STRING), string pointer.
+    `$context = ${marshal}::AllocHGlobal(32)`,
+    `${marshal}::WriteInt32($context, 0, 0)`,
+    `${marshal}::WriteInt32($context, 4, 1)`,
+    `${marshal}::WriteIntPtr($context, 8, ${marshal}::StringToHGlobalUni(${psString(POWER_REQUEST_REASON)}))`,
+    '$handle = $power::PowerCreateRequest($context)',
+    `if ($handle.ToInt64() -le 0) { throw ${psString('PowerCreateRequest failed')} }`,
+    `if (-not $power::PowerSetRequest($handle, ${POWER_REQUEST_SYSTEM_REQUIRED})) { throw ${psString('PowerSetRequest failed')} }`,
+    `[Console]::Out.WriteLine(${psString(READY_LINE)})`,
+    '[Console]::Out.Flush()',
+    '[void][Console]::In.ReadToEnd()'
+  ].join('; ');
 };
 
 const resolveNativeCommand = platform => {
@@ -61,6 +116,17 @@ const resolveNativeCommand = platform => {
     };
   }
 
+  if (platform === 'win32') {
+    // Windows does not end children when their parent dies, so the script blocks
+    // on stdin for the same crash release as `cat` on Linux.
+    return {
+      cmd: windowsPowerShellPath(),
+      args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', windowsPowerRequestScript()],
+      stdio: ['pipe', 'pipe', 'pipe'],
+      readyLine: READY_LINE
+    };
+  }
+
   return null;
 };
 
@@ -71,6 +137,10 @@ const isAvailable = () => {
 
   if (deps.platform === 'linux') {
     return deps.isSystemdBooted() && deps.commandExists('systemd-inhibit');
+  }
+
+  if (deps.platform === 'win32') {
+    return deps.fileExists(windowsPowerShellPath());
   }
 
   return false;
@@ -88,9 +158,10 @@ const recordFailure = (state, reason) => {
 /**
  * Enable caffeine (prevent sleep) by spawning the platform's sleep tool.
  *
- * A tool that fails to start or exits within EARLY_EXIT_MS is recorded on
+ * A tool that fails to start, or exits before it holds the lock, is recorded on
  * `state.nativeFailure`, and later calls do nothing, so the poller does not
- * respawn a failing process on every tick.
+ * respawn a failing process on every tick. A tool with a `readyLine` holds the
+ * lock once it prints that line. Other tools are trusted after EARLY_EXIT_MS.
  * @param {object} state - Tray state object with isCaffeinated / caffeinateProcess
  */
 const enableCaffeine = state => {
@@ -104,9 +175,15 @@ const enableCaffeine = state => {
     return;
   }
 
-  const child = deps.spawn(command.cmd, command.args, { stdio: command.stdio });
+  const child = deps.spawn(command.cmd, command.args, {
+    stdio: command.stdio,
+    windowsHide: true
+  });
   const startedAt = deps.now();
   let stderr = '';
+  let stdout = '';
+  let ready = false;
+  let readyTimer = null;
 
   if (child.stderr) {
     child.stderr.on('data', chunk => {
@@ -123,17 +200,41 @@ const enableCaffeine = state => {
     return true;
   };
 
+  if (command.readyLine) {
+    child.stdout.on('data', chunk => {
+      stdout += chunk.toString();
+      if (!ready && stdout.split(/\r?\n/).includes(command.readyLine)) {
+        ready = true;
+        clearTimeout(readyTimer);
+      }
+    });
+
+    readyTimer = setTimeout(() => {
+      if (ready || !release()) {
+        return;
+      }
+      recordFailure(state, `${command.cmd} did not report ready within ${READY_TIMEOUT_MS} ms`);
+      child.kill();
+    }, READY_TIMEOUT_MS);
+    if (typeof readyTimer.unref === 'function') {
+      readyTimer.unref();
+    }
+  }
+
   child.on('error', error => {
+    clearTimeout(readyTimer);
     release();
     recordFailure(state, `${command.cmd} failed to start: ${error.message}`);
   });
 
   child.on('exit', (code, signal) => {
+    clearTimeout(readyTimer);
     if (!release()) {
       return;
     }
 
-    if (deps.now() - startedAt < EARLY_EXIT_MS) {
+    const exitedEarly = command.readyLine ? !ready : deps.now() - startedAt < EARLY_EXIT_MS;
+    if (exitedEarly) {
       const detail = stderr.trim() ? `: ${stderr.trim()}` : '';
       recordFailure(
         state,
@@ -167,5 +268,7 @@ module.exports = {
   isAvailable,
   resolveNativeCommand,
   setDependencies,
-  EARLY_EXIT_MS
+  windowsPowerShellPath,
+  EARLY_EXIT_MS,
+  READY_TIMEOUT_MS
 };

@@ -5,7 +5,8 @@
  * the `sleep_backend` config setting:
  *   - 'electron' (default): Electron's powerSaveBlocker
  *   - 'native':     the OS sleep tool via src/native.js (`caffeinate` on macOS,
- *                   `systemd-inhibit` on Linux), or 'electron' when no tool exists
+ *                   `systemd-inhibit` on Linux, a PowerShell power request on
+ *                   Windows), or 'electron' when no tool exists
  *
  * The decision (poller) and UI (system-tray) layers stay backend-agnostic.
  */

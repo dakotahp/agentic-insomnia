@@ -8,7 +8,7 @@
 
 const { getActiveSessionsWithLock, cleanupExpiredSessionsWithLock } = require('./session');
 const { enableCaffeine, disableCaffeine } = require('./backend');
-const { isPidFileOwnedByOther } = require('./pid');
+const { isPidFileOwnedByOther, writeHeartbeat } = require('./pid');
 
 /**
  * Update caffeine status based on active sessions
@@ -63,6 +63,17 @@ const checkOwnership = async (state, onOwnershipLost) => {
 };
 
 /**
+ * Record that this server is alive, so clients can skip slow process lookups
+ */
+const refreshHeartbeat = async () => {
+  try {
+    await writeHeartbeat(process.pid);
+  } catch (error) {
+    console.error('Error writing server heartbeat:', error.message);
+  }
+};
+
+/**
  * Start polling for session changes
  * @param {object} state - Tray state object
  * @param {number} [interval=10000] - Poll interval in ms
@@ -74,6 +85,7 @@ const startPolling = (state, interval = 10000, onStateChange, onOwnershipLost) =
     if (onOwnershipLost && !(await checkOwnership(state, onOwnershipLost))) {
       return;
     }
+    await refreshHeartbeat();
     await updateCaffeineStatus(state, onStateChange);
   };
 
