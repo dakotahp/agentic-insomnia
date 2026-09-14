@@ -57,13 +57,19 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
 - `test/pid.test.js` spawns `ps` and fails with EPERM in sandboxes. That is not a bug.
 - Update `README.md` for user-visible changes, `ARCHITECTURE.md` for design changes.
 
-## Versioning
+## Versioning and releases
 
-SemVer plus `CHANGELOG.md` (Keep a Changelog). Bump once per feature, in the same PR.
+SemVer. release-please (`.github/workflows/release-please.yml`) makes every release.
 
-- New capability or config option: minor
-- Fix or refactor with no behavior change: patch
-- Breaking CLI, config, or session file change: major (confirm with the user first)
-
-Update the version in both `package.json` and `.claude-plugin/plugin.json`. CI fails
-when they differ.
+- Do not change the version or `CHANGELOG.md` in a feature PR.
+- Commit messages are Conventional Commits. They choose the next version and become the
+  changelog:
+  - `fix:` bug fix or behavior-preserving change users notice: patch
+  - `feat:` new capability or config option: minor
+  - `feat!:` or a `BREAKING CHANGE:` footer, for breaking CLI, config, or session file
+    changes: major (confirm with the user first)
+  - `docs:`, `test:`, `refactor:`, `chore:`, and `ci:` do not trigger a release
+- On each push to `master`, release-please opens or updates a release PR. It bumps
+  `package.json`, `.claude-plugin/plugin.json`, `.release-please-manifest.json`, and
+  `CHANGELOG.md`. Merging that PR creates the `vX.Y.Z` tag and the GitHub release.
+- Release PRs are opened by the Actions bot, so CI does not run on them.
