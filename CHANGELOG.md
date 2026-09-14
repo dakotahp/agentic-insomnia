@@ -5,6 +5,32 @@ All notable changes to cc-caffeine are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-09-12
+
+### Added
+
+- **Linux support for the native backend**: with `sleep_backend: "native"` on a
+  systemd system, the server holds a logind lock with
+  `systemd-inhibit --what=sleep:idle --mode=block`. The lock is released when
+  sessions go idle, when the server stops, and when the server process dies.
+  Tested on Omarchy (Arch Linux) with systemd 261 and Hyprland.
+- **Automatic Electron fallback**: when `native` is configured but no native
+  tool is available (non-systemd Linux, Windows), cc-caffeine logs a warning
+  and uses the Electron backend.
+- `status` now shows which sleep backend is in use.
+- `ARCHITECTURE.md`: a contributor guide to how the pieces fit together.
+
+### Fixed
+
+- The native backend no longer crashes the server when its sleep tool is
+  missing. A tool that fails to start or exits within 2 seconds is logged once
+  and is not respawned on every poll.
+
+### Changed
+
+- `src/native.js` test injection: `setSpawnFn` is replaced by
+  `setDependencies`, which also injects the platform, tool lookup, and clock.
+
 ## [0.5.2] - 2026-09-12
 
 ### Changed

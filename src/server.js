@@ -22,11 +22,9 @@ const {
   isStartupInProgress,
   markStartupInProgress
 } = require('./pid');
-const { getConfig } = require('./config');
+const { getSleepBackend } = require('./backend');
 
 const CHECK_INTERVAL = 5 * 1000; // 5 seconds
-
-const getBackend = () => getConfig().sleep_backend;
 
 /**
  * Ensure server is running, start if needed
@@ -79,7 +77,7 @@ const startServerProcess = async () => {
   delete env.ELECTRON_RUN_AS_NODE;
 
   // The native backend runs as a plain Node process, no Electron.
-  const script = getBackend() === 'native' ? 'native-server' : 'server';
+  const script = getSleepBackend() === 'native' ? 'native-server' : 'server';
 
   const serverProcess = spawn('npm', ['run', script], {
     detached: true,
@@ -117,7 +115,7 @@ const handleServer = async () => {
         mustStartServer = true;
         console.error('Already running inside Electron, starting server...');
         await writePidFile(process.pid);
-      } else if (getBackend() === 'native') {
+      } else if (getSleepBackend() === 'native') {
         mustStartNative = true;
         console.error('Native backend, starting server in this process...');
         await writePidFile(process.pid);
@@ -162,7 +160,7 @@ const shutDownWhenSuperseded = exit => async state => {
  * (no Electron); with the Electron backend it boots the headless tray app.
  */
 const startServer = async () => {
-  if (getBackend() === 'native') {
+  if (getSleepBackend() === 'native') {
     return startNativeServer();
   }
 

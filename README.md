@@ -7,13 +7,13 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
 ## Features
 
 - Cross-platform support for MacOS, Linux, and Windows.
-- On MacOS it uses native functionality to stay awake (when configured).
+  - On MacOS and Linux it can use the OS's own sleep tool to stay awake, without Electron (when configured).
 - Supports Claude Code and OpenCode.
 - Adds cross-platform menu bar tray indicator:
 
-​	![](./assets/icon-coffee-empty.png) - Harness is idle
+​	![](./assets/icon-coffee-empty.png) Harness is idle
 
-​	![](./assets/icon-coffee-full.png) - Harness is running
+​	![](./assets/icon-coffee-full.png) Harness is running
 
 ## 🎯 Installation
 
@@ -70,7 +70,7 @@ The directory is created automatically on first run, but the file itself is not.
 |---------|---------|-------------|
 | `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
 | `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
-| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the MacOS `caffeinate` utility, no Electron, no tray) |
+| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS sleep tool: `caffeinate` on MacOS, `systemd-inhibit` on Linux; no Electron, no tray) |
 
 ### Manual Claude Code Hook Configuration
 
@@ -145,7 +145,7 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
 
 ### Switching to the native backend
 
-On macOS only, you can set `sleep_backend` to `"native"` to prevent sleep using the native `caffeinate` utility instead of Electron. The server then runs as a plain Node process with no system tray. This is useful to avoid Electron as a dependency to keep the system awake.
+Set `sleep_backend` to `"native"` to prevent sleep with your operating system's own tool instead of Electron. The server then runs as a plain Node process with no system tray, so Electron is not needed to keep the system awake.
 
 ```json
 {
@@ -153,12 +153,33 @@ On macOS only, you can set `sleep_backend` to `"native"` to prevent sleep using 
 }
 ```
 
+| OS | Tool used |
+|----|-----------|
+| MacOS | `caffeinate -i` |
+| Linux (systemd) | `systemd-inhibit --what=sleep:idle --mode=block` |
+| Anything else | None. cc-caffeine logs a warning and uses the Electron backend. |
+
+Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(cat ~/.claude/plugins/cc-caffeine/server.pid)"`. The next hook starts a new server.
+
 The Electron backend remains the cross-platform default.
+
+#### Linux notes
+
+Linux is supported and works by holding a standard systemd lock (`systemd-inhibit --what=sleep:idle`).
+
+- It needs systemd (logind) to work. This covers most distros: Ubuntu, Debian, Fedora, Arch and its derivatives (EndeavourOS, Manjaro, CachyOS), openSUSE, Linux Mint, Pop!_OS, NixOS, and similar. Distros without systemd, such as Void, Alpine, Artix, Gentoo with OpenRC, Devuan, or WSL without systemd, fall back to Electron.
+- It blocks suspend, hibernate, and the idle action. On most desktops, the screen should also stay unlocked. This is expected, not tested.
+- On GNOME, suspend is still blocked, but by logind refusing it, not by GNOME's own power tool. GNOME still tries and fails, logs an error, and the screen still blanks and locks. Expected, not tested.
+- The lock is released when sessions go idle, when the server stops, and also when the server crashes.
 
 ## 📋 Local Development Requirements
 
 - Node.js >= 22.12.0 (your coffee of choice; `.node-version` pins the one CI uses)
 - Electron (included automatically, like sugar in your espresso)
+
+## 🛠 Contributing
+
+See [architecture documentation](ARCHITECTURE.md) for how the pieces fit together, how the tests work, and how to add a sleep backend.
 
 ## 🚀 Run without Claude Code
 
