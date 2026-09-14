@@ -27,11 +27,11 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
 |---|---|
 | CLI routing | `caffeine.js`, `src/commands.js` |
 | Session file (locked) | `src/session.js` |
-| PID file, startup marker | `src/pid.js` |
+| PID file, heartbeat, startup marker | `src/pid.js` |
 | Server startup | `src/server.js` |
 | Decision: when to hold the lock | `src/poller.js` |
 | Mechanism: backend choice | `src/backend.js` |
-| caffeinate / systemd-inhibit | `src/native.js` |
+| caffeinate / systemd-inhibit / PowerShell power request | `src/native.js` |
 | Tray UI and shutdown | `src/system-tray.js` |
 | Lazy Electron loader | `src/electron.js` |
 | Config (cached) | `src/config.js` |
@@ -46,13 +46,18 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
   (`onOwnershipLost` in `startPolling`). Keep that path when changing startup.
 - Use `getSleepBackend()` for backend decisions, never `config.sleep_backend`.
 - Backend enable/disable must be safe to call twice and keep handles on `state`.
-- The Linux command ends in `cat` with a stdin pipe on purpose: it releases the lock
-  if the server dies. Do not replace it with `sleep infinity`.
+- The Linux command ends in `cat`, and the Windows script ends reading stdin, on purpose:
+  both release the lock if the server dies. Do not replace them with `sleep infinity` or a
+  timer.
+- The Windows PowerShell script must not contain double quotes or use `Add-Type`. See
+  `ARCHITECTURE.md`.
+- On Windows, `validatePid` trusts a fresh `server.heartbeat` instead of starting PowerShell.
+  Servers must keep refreshing it on every poll.
 - Config is cached per process. Restart the server after config changes.
 - The background server discards its logs. Debug with a foreground server.
 - `opencode/cc-caffeine.mjs` stays one file with only a default export.
 - CI (`.github/workflows/ci.yml`) runs lint and tests on Ubuntu. Tests must not depend
-  on the host OS: pin the platform with `native.setDependencies`, and mock
+  on the host OS: pin the platform with `native.setDependencies` or `pid.setDependencies`, and mock
   config/electron through `require.cache`.
 - `test/pid.test.js` spawns `ps` and fails with EPERM in sandboxes. That is not a bug.
 - Update `README.md` for user-visible changes, `ARCHITECTURE.md` for design changes.

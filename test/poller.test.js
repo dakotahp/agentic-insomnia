@@ -56,6 +56,34 @@ test('checkOwnership keeps a server when the PID file is missing', async () => {
   assert.strictEqual(calls.length, 0);
 });
 
+test('each poll refreshes the server heartbeat with this PID', async () => {
+  const { startPolling, stopPolling } = loadPollerWithPidFile(process.pid);
+  const heartbeatFile = path.join(os.homedir(), '.claude', 'plugins', 'cc-caffeine', 'server.heartbeat');
+  const state = {};
+
+  startPolling(state, 60000, undefined, async () => {});
+  try {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.strictEqual(fs.readFileSync(heartbeatFile, 'utf8'), String(process.pid));
+  } finally {
+    stopPolling(state);
+  }
+});
+
+test('a server that lost ownership does not refresh the heartbeat', async () => {
+  const { startPolling, stopPolling } = loadPollerWithPidFile(process.pid + 1);
+  const heartbeatFile = path.join(os.homedir(), '.claude', 'plugins', 'cc-caffeine', 'server.heartbeat');
+  const state = {};
+
+  startPolling(state, 60000, undefined, async () => {});
+  try {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.strictEqual(fs.existsSync(heartbeatFile), false);
+  } finally {
+    stopPolling(state);
+  }
+});
+
 test('checkOwnership stops polling and reports when another PID owns the file', async () => {
   const { checkOwnership } = loadPollerWithPidFile(process.pid + 1);
   const { calls, callback } = recordCalls();

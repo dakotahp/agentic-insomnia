@@ -14,11 +14,17 @@ const makeState = () => ({
 const makeFakeChild = () => {
   const handlers = {};
   const stderrHandlers = {};
+  const stdoutHandlers = {};
   const child = {
     killed: false,
     stderr: {
       on: (event, cb) => {
         stderrHandlers[event] = cb;
+      }
+    },
+    stdout: {
+      on: (event, cb) => {
+        stdoutHandlers[event] = cb;
       }
     },
     on: (event, cb) => {
@@ -32,18 +38,19 @@ const makeFakeChild = () => {
       }
     }
   };
-  return { child, handlers, stderrHandlers };
+  return { child, handlers, stderrHandlers, stdoutHandlers };
 };
 
 const loadWith = (overrides = {}) => {
   const native = loadNative();
   const calls = [];
-  const { child, handlers, stderrHandlers } = makeFakeChild();
+  const { child, handlers, stderrHandlers, stdoutHandlers } = makeFakeChild();
   let clock = 1000;
   native.setDependencies({
     platform: 'darwin',
     commandExists: () => true,
     isSystemdBooted: () => true,
+    fileExists: () => true,
     now: () => clock,
     spawn: (cmd, args, opts) => {
       calls.push({ cmd, args, opts });
@@ -54,7 +61,7 @@ const loadWith = (overrides = {}) => {
   const advance = ms => {
     clock += ms;
   };
-  return { native, calls, child, handlers, stderrHandlers, advance };
+  return { native, calls, child, handlers, stderrHandlers, stdoutHandlers, advance };
 };
 
 test('resolveNativeCommand returns caffeinate -i on macOS', () => {
@@ -86,7 +93,37 @@ test('resolveNativeCommand returns systemd-inhibit holding cat on Linux', () => 
 test('resolveNativeCommand returns null on unsupported platforms', () => {
   const { resolveNativeCommand } = loadNative();
 
-  assert.strictEqual(resolveNativeCommand('win32'), null);
+  assert.strictEqual(resolveNativeCommand('freebsd'), null);
+});
+
+test('resolveNativeCommand runs the built-in Windows PowerShell on Windows', () => {
+  const { resolveNativeCommand } = loadNative();
+
+  const command = resolveNativeCommand('win32');
+
+  assert.match(command.cmd, /System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/);
+  assert.deepStrictEqual(command.args.slice(0, 4), [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command'
+  ]);
+  assert.deepStrictEqual(command.stdio, ['pipe', 'pipe', 'pipe']);
+  assert.strictEqual(command.readyLine, 'ready');
+});
+
+test('the Windows script holds a system-required power request until stdin closes', () => {
+  const { resolveNativeCommand } = loadNative();
+
+  const script = resolveNativeCommand('win32').args[4];
+
+  assert.match(script, /DefinePInvokeMethod\('PowerCreateRequest'/);
+  assert.match(script, /\$power::PowerSetRequest\(\$handle, 1\)/);
+  assert.match(script, /StringToHGlobalUni\('cc-caffeine: Claude Code session active'\)/);
+  assert.match(script, /WriteLine\('ready'\)/);
+  assert.match(script, /\[Console\]::In\.ReadToEnd\(\)$/);
+  assert.ok(!script.includes('"'), 'double quotes do not survive Windows argument quoting');
+  assert.ok(!script.includes('Add-Type'), 'Add-Type starts the C# compiler');
 });
 
 test('isAvailable is true on macOS when caffeinate is on PATH', () => {
@@ -120,9 +157,20 @@ test('isAvailable is false on Linux when systemd-inhibit is missing', () => {
 });
 
 test('isAvailable is false on unsupported platforms', () => {
-  const { native } = loadWith({ platform: 'win32' });
+  const { native } = loadWith({ platform: 'freebsd' });
 
   assert.strictEqual(native.isAvailable(), false);
+});
+
+test('isAvailable on Windows depends on the built-in PowerShell existing', () => {
+  const { native } = loadWith({
+    platform: 'win32',
+    fileExists: file => file.endsWith('powershell.exe')
+  });
+  assert.strictEqual(native.isAvailable(), true);
+
+  const { native: withoutPowerShell } = loadWith({ platform: 'win32', fileExists: () => false });
+  assert.strictEqual(withoutPowerShell.isAvailable(), false);
 });
 
 test('enableCaffeine spawns caffeinate -i on macOS and stores the child', () => {
@@ -242,12 +290,106 @@ test('a spawn error records a failure instead of crashing', t => {
 
 test('enableCaffeine records a failure on an unsupported platform', t => {
   t.mock.method(console, 'error', () => {});
-  const { native, calls } = loadWith({ platform: 'win32' });
+  const { native, calls } = loadWith({ platform: 'freebsd' });
 
   const state = makeState();
   native.enableCaffeine(state);
 
   assert.strictEqual(calls.length, 0);
   assert.strictEqual(state.isCaffeinated, false);
-  assert.match(state.nativeFailure, /win32/);
+  assert.match(state.nativeFailure, /freebsd/);
+});
+
+test('enableCaffeine on Windows spawns a hidden PowerShell with piped stdio', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { native, calls, child } = loadWith({ platform: 'win32' });
+
+  const state = makeState();
+  native.enableCaffeine(state);
+
+  assert.strictEqual(state.caffeinateProcess, child);
+  assert.match(calls[0].cmd, /powershell\.exe$/);
+  assert.strictEqual(calls[0].opts.windowsHide, true);
+  assert.deepStrictEqual(calls[0].opts.stdio, ['pipe', 'pipe', 'pipe']);
+});
+
+test('on Windows an exit before ready is a failure even after the early-exit window', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const errors = t.mock.method(console, 'error', () => {});
+  const { native, calls, handlers, stderrHandlers, advance } = loadWith({ platform: 'win32' });
+
+  const state = makeState();
+  native.enableCaffeine(state);
+  stderrHandlers.data(Buffer.from('Exception calling DefinePInvokeMethod\r\n'));
+  advance(native.EARLY_EXIT_MS * 3);
+  handlers.exit(1, null);
+
+  assert.strictEqual(state.isCaffeinated, false);
+  assert.match(state.nativeFailure, /exited early/);
+  assert.match(state.nativeFailure, /DefinePInvokeMethod/);
+
+  native.enableCaffeine(state);
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(errors.mock.callCount(), 1);
+});
+
+test('on Windows an exit after ready is a normal stop, even within the early-exit window', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { native, calls, handlers, stdoutHandlers } = loadWith({ platform: 'win32' });
+
+  const state = makeState();
+  native.enableCaffeine(state);
+  stdoutHandlers.data(Buffer.from('rea'));
+  stdoutHandlers.data(Buffer.from('dy\r\n'));
+  handlers.exit(0, null);
+
+  assert.strictEqual(state.isCaffeinated, false);
+  assert.strictEqual(state.nativeFailure, undefined);
+
+  native.enableCaffeine(state);
+  assert.strictEqual(calls.length, 2);
+});
+
+test('on Windows a PowerShell that never reports ready is killed and recorded', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const errors = t.mock.method(console, 'error', () => {});
+  const { native, child } = loadWith({ platform: 'win32' });
+
+  const state = makeState();
+  native.enableCaffeine(state);
+  t.mock.timers.tick(native.READY_TIMEOUT_MS);
+
+  assert.strictEqual(child.killed, true);
+  assert.strictEqual(state.isCaffeinated, false);
+  assert.strictEqual(state.caffeinateProcess, null);
+  assert.match(state.nativeFailure, /did not report ready/);
+  assert.strictEqual(errors.mock.callCount(), 1);
+});
+
+test('on Windows reporting ready cancels the ready timeout', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { native, child, stdoutHandlers } = loadWith({ platform: 'win32' });
+
+  const state = makeState();
+  native.enableCaffeine(state);
+  stdoutHandlers.data(Buffer.from('ready\r\n'));
+  t.mock.timers.tick(native.READY_TIMEOUT_MS);
+
+  assert.strictEqual(child.killed, false);
+  assert.strictEqual(state.isCaffeinated, true);
+  assert.strictEqual(state.nativeFailure, undefined);
+});
+
+test('on Windows disabling before ready does not record a failure', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { native, child } = loadWith({ platform: 'win32' });
+
+  const state = makeState();
+  native.enableCaffeine(state);
+  native.disableCaffeine(state);
+  t.mock.timers.tick(native.READY_TIMEOUT_MS);
+
+  assert.strictEqual(child.killed, true);
+  assert.strictEqual(state.isCaffeinated, false);
+  assert.strictEqual(state.nativeFailure, undefined);
 });
