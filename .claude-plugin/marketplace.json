@@ -1,6 +1,6 @@
 {
   "name": "cc-caffeine",
-  "description": "Prevents your computer from sleeping while Claude Code works hard",
+  "description": "Prevents your laptop from sleeping while the harness is working.",
   "owner": {
     "name": "Dakotah Peña",
     "email": "git@dakotahpena.dev"
@@ -9,7 +9,7 @@
     {
       "name": "cc-caffeine",
       "source": "./",
-      "description": "Prevents your computer from sleeping while Claude Code works hard"
+      "description": "Prevents your laptop from sleeping while the harness is working."
     }
   ]
 }
