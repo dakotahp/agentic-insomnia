@@ -1,8 +1,8 @@
-# cc-caffeine ☕⚡
+# agentic-insomnia ☕⚡
 
 _The successor to the now deprecated [samber/cc-caffeine](https://github.com/samber/cc-caffeine)._
 
-Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `cc-caffeine` keeps Claude Code and OpenCode harnesses awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
+Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `agentic-insomnia` keeps Claude Code and OpenCode harnesses awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
 
 ## Features
 
@@ -24,8 +24,8 @@ Claude Code and OpenCode harnesses are both supported, and the installation meth
 Add the repo as a Claude Code plugin marketplace, then install the plugin:
 
 ```bash
-/plugin marketplace add dakotahp/cc-caffeine
-/plugin install cc-caffeine@cc-caffeine
+/plugin marketplace add dakotahp/agentic-insomnia
+/plugin install agentic-insomnia@dakotahp
 ```
 
 Installing the plugin registers its hooks automatically, so no manual hook configuration is needed. The hooks run the plugin's own bundled `caffeine.js`(via `${CLAUDE_PLUGIN_ROOT}`), so no `npx` fetch is required.
@@ -39,21 +39,21 @@ plugin:
 
 ```json
 {
-  "plugin": ["/absolute/path/to/cc-caffeine/opencode/cc-caffeine.mjs"]
+  "plugin": ["/absolute/path/to/agentic-insomnia/opencode/agentic-insomnia.mjs"]
 }
 ```
 
-Replace `/absolute/path/to/cc-caffeine` with wherever you cloned this repo.
+Replace `/absolute/path/to/agentic-insomnia` with wherever you cloned this repo.
 
 OpenCode picks up the plugin the next time it starts. Activity keeps the session alive, and the server releases sleep prevention after the idle timeout.
 
 ## ⚙️ Configuration (Optional)
 
-cc-caffeine works out of the box with **zero configuration** — the default
+agentic-insomnia works out of the box with **zero configuration** — the default
 Electron backend needs nothing. To change behavior, create a config file at:
 
 ```
-~/.claude/plugins/cc-caffeine/config.json
+~/.claude/plugins/agentic-insomnia/config.json
 ```
 
 The directory is created automatically on first run, but the file itself is not. Create it by hand and add only the settings you want. Every setting is optional and falls back to the default below.
@@ -76,7 +76,7 @@ The directory is created automatically on first run, but the file itself is not.
 
 Hooks will be configured automatically if you import the project as a Claude Code plugin.
 
-Otherwise, configure your Claude Code hooks manually, pointing each command at the local `caffeine.js` (replace `/path/to/cc-caffeine` with your checkout):
+Otherwise, configure your Claude Code hooks manually, pointing each command at the local `caffeine.js` (replace `/path/to/agentic-insomnia` with your checkout):
 
 ```json
 {
@@ -85,7 +85,7 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
        "hooks": [
          {
            "type": "command",
-           "command": "node /path/to/cc-caffeine/caffeine.js caffeinate"
+           "command": "node /path/to/agentic-insomnia/caffeine.js caffeinate"
          }
        ]
      }
@@ -95,7 +95,7 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
        "hooks": [
          {
            "type": "command",
-           "command": "node /path/to/cc-caffeine/caffeine.js caffeinate"
+           "command": "node /path/to/agentic-insomnia/caffeine.js caffeinate"
          }
        ]
      }
@@ -105,7 +105,7 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
        "hooks": [
          {
            "type": "command",
-           "command": "node /path/to/cc-caffeine/caffeine.js caffeinate"
+           "command": "node /path/to/agentic-insomnia/caffeine.js caffeinate"
          }
        ]
      }
@@ -115,7 +115,7 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
        "hooks": [
          {
            "type": "command",
-           "command": "node /path/to/cc-caffeine/caffeine.js uncaffeinate"
+           "command": "node /path/to/agentic-insomnia/caffeine.js uncaffeinate"
          }
        ]
      }
@@ -125,7 +125,7 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
        "hooks": [
          {
            "type": "command",
-           "command": "node /path/to/cc-caffeine/caffeine.js uncaffeinate"
+           "command": "node /path/to/agentic-insomnia/caffeine.js uncaffeinate"
          }
        ]
      }
@@ -135,7 +135,7 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
        "hooks": [
          {
            "type": "command",
-           "command": "node /path/to/cc-caffeine/caffeine.js uncaffeinate"
+           "command": "node /path/to/agentic-insomnia/caffeine.js uncaffeinate"
          }
        ]
      }
@@ -158,9 +158,9 @@ Set `sleep_backend` to `"native"` to prevent sleep with your operating system's 
 | MacOS | `caffeinate -i` |
 | Linux (systemd) | `systemd-inhibit --what=sleep:idle --mode=block` |
 | Windows 10 and 11 | The built-in Windows PowerShell, holding a system power request |
-| Anything else | None. cc-caffeine logs a warning and uses the Electron backend. |
+| Anything else | None. agentic-insomnia logs a warning and uses the Electron backend. |
 
-Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(cat ~/.claude/plugins/cc-caffeine/server.pid)"`, or on Windows in PowerShell: `Stop-Process -Id (Get-Content "$HOME\.claude\plugins\cc-caffeine\server.pid")`. The next hook starts a new server.
+Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(cat ~/.claude/plugins/agentic-insomnia/server.pid)"`, or on Windows in PowerShell: `Stop-Process -Id (Get-Content "$HOME\.claude\plugins\agentic-insomnia\server.pid")`. The next hook starts a new server.
 
 The Electron backend remains the cross-platform default.
 
@@ -175,9 +175,9 @@ Linux is supported and works by holding a standard systemd lock (`systemd-inhibi
 
 #### Windows notes
 
-Windows has no command like `caffeinate`, so cc-caffeine starts the Windows PowerShell that comes with Windows 10 and 11. PowerShell holds a system power request, the same kind Electron uses. Windows support is new and not yet tested on many machines.
+Windows has no command like `caffeinate`, so agentic-insomnia starts the Windows PowerShell that comes with Windows 10 and 11. PowerShell holds a system power request, the same kind Electron uses. Windows support is new and not yet tested on many machines.
 
-- While a session is active, `powercfg /requests` (in an administrator terminal) lists `cc-caffeine: Claude Code session active`.
+- While a session is active, `powercfg /requests` (in an administrator terminal) lists `agentic-insomnia: coding agent session active`.
 - The request is released when sessions go idle, when the server stops, and also when the server crashes.
 - PowerShell takes a second or two to start each time sessions become active. Hooks do not wait for it. If it is too slow on your machine, use `"electron"`.
 - On laptops with Modern Standby, when on battery, Windows ends the request 5 minutes after your "sleep after" time. When plugged in, there is no limit. The Electron backend has the same limit.

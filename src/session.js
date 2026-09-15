@@ -4,7 +4,7 @@ const os = require('os');
 const lockfile = require('proper-lockfile');
 const { getConfig } = require('./config');
 
-const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'cc-caffeine');
+const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
 const SESSIONS_FILE = path.join(CONFIG_DIR, 'sessions.json');
 const getSessionTimeout = () => getConfig().session_timeout_minutes * 60 * 1000;
 const MAX_RETRIES = 10;

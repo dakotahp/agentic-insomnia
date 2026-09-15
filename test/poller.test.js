@@ -10,9 +10,9 @@ const mockModule = (relativePath, exports) => {
 };
 
 const loadPollerWithPidFile = pidFileContent => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-caffeine-poller-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-insomnia-poller-'));
   os.homedir = () => home;
-  const configDir = path.join(home, '.claude', 'plugins', 'cc-caffeine');
+  const configDir = path.join(home, '.claude', 'plugins', 'agentic-insomnia');
   fs.mkdirSync(configDir, { recursive: true });
 
   if (pidFileContent !== undefined) {
@@ -58,7 +58,7 @@ test('checkOwnership keeps a server when the PID file is missing', async () => {
 
 test('each poll refreshes the server heartbeat with this PID', async () => {
   const { startPolling, stopPolling } = loadPollerWithPidFile(process.pid);
-  const heartbeatFile = path.join(os.homedir(), '.claude', 'plugins', 'cc-caffeine', 'server.heartbeat');
+  const heartbeatFile = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia', 'server.heartbeat');
   const state = {};
 
   startPolling(state, 60000, undefined, async () => {});
@@ -72,7 +72,7 @@ test('each poll refreshes the server heartbeat with this PID', async () => {
 
 test('a server that lost ownership does not refresh the heartbeat', async () => {
   const { startPolling, stopPolling } = loadPollerWithPidFile(process.pid + 1);
-  const heartbeatFile = path.join(os.homedir(), '.claude', 'plugins', 'cc-caffeine', 'server.heartbeat');
+  const heartbeatFile = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia', 'server.heartbeat');
   const state = {};
 
   startPolling(state, 60000, undefined, async () => {});

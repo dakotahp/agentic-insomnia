@@ -1,5 +1,5 @@
 /**
- * OpenCode plugin - translates OpenCode events into cc-caffeine CLI calls.
+ * OpenCode plugin - translates OpenCode events into agentic-insomnia CLI calls.
  *
  * OpenCode has no external-command hook model like Claude Code; it exposes an
  * in-process plugin system. This module is self-contained: it maps OpenCode
@@ -95,14 +95,14 @@ const extractSessionId = (event, input) => {
 
 /**
  * Resolve the CLI to invoke. When the plugin ships inside the repo, the sibling
- * caffeine.js is used; when installed from npm, the `cc-caffeine` bin.
+ * caffeine.js is used; when installed from npm, the `agentic-insomnia` bin.
  */
 const resolveCli = () => {
   const local = path.join(__dirname, '..', 'caffeine.js');
   if (fs.existsSync(local)) {
     return { cmd: 'node', args: [local] };
   }
-  return { cmd: 'npx', args: ['cc-caffeine'] };
+  return { cmd: 'npx', args: ['agentic-insomnia'] };
 };
 
 /**
@@ -181,11 +181,11 @@ const createHooks = ctx => {
 // plugin context, expecting a hooks object back. `options.testSpawnFn` is a
 // private testing seam (see the file header comment); real OpenCode never
 // sets it, so production behavior is unaffected.
-const CcCaffeine = async (ctx, options) => {
+const AgenticInsomnia = async (ctx, options) => {
   if (options && typeof options.testSpawnFn === 'function') {
     spawnFn = options.testSpawnFn;
   }
   return createHooks(ctx);
 };
 
-export default CcCaffeine;
+export default AgenticInsomnia;

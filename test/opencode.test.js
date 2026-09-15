@@ -14,7 +14,7 @@ const assert = require('node:assert');
 // default export returns, injecting a fake spawn via the `testSpawnFn`
 // plugin option.
 const loadOpencode = async () => {
-  const mod = await import(`../opencode/cc-caffeine.mjs?bust=${Date.now()}-${Math.random()}`);
+  const mod = await import(`../opencode/agentic-insomnia.mjs?bust=${Date.now()}-${Math.random()}`);
   return mod.default;
 };
 
@@ -50,8 +50,8 @@ const makeFakeChild = () => {
 };
 
 const createHooks = async (ctx, testSpawnFn) => {
-  const CcCaffeine = await loadOpencode();
-  return CcCaffeine(ctx, testSpawnFn ? { testSpawnFn } : undefined);
+  const AgenticInsomnia = await loadOpencode();
+  return AgenticInsomnia(ctx, testSpawnFn ? { testSpawnFn } : undefined);
 };
 
 test('createHooks returns the expected hook keys', async () => {

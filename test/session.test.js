@@ -5,9 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 
 const makeTempHome = () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-caffeine-session-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-insomnia-session-'));
   os.homedir = () => home;
-  fs.mkdirSync(path.join(home, '.claude', 'plugins', 'cc-caffeine'), { recursive: true });
+  fs.mkdirSync(path.join(home, '.claude', 'plugins', 'agentic-insomnia'), { recursive: true });
   return home;
 };
 
@@ -18,7 +18,7 @@ const loadSession = () => {
 };
 
 const sessionsFile = home =>
-  path.join(home, '.claude', 'plugins', 'cc-caffeine', 'sessions.json');
+  path.join(home, '.claude', 'plugins', 'agentic-insomnia', 'sessions.json');
 
 const writeSessions = (home, sessions) => {
   const file = sessionsFile(home);
@@ -121,7 +121,7 @@ test('addSessionWithLock cleans up expired sessions on the way in', async () => 
 
 test('initSessionsFile creates the file when missing', async () => {
   const home = makeTempHome();
-  fs.mkdirSync(path.join(home, '.claude', 'plugins', 'cc-caffeine'), { recursive: true });
+  fs.mkdirSync(path.join(home, '.claude', 'plugins', 'agentic-insomnia'), { recursive: true });
   const { initSessionsFile, readSessionsWithLock } = loadSession();
 
   await initSessionsFile();

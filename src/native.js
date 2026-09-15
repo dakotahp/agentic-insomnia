@@ -17,7 +17,7 @@ const path = require('path');
 const EARLY_EXIT_MS = 2000;
 const READY_TIMEOUT_MS = 15000;
 const READY_LINE = 'ready';
-const POWER_REQUEST_REASON = 'cc-caffeine: Claude Code session active';
+const POWER_REQUEST_REASON = 'agentic-insomnia: coding agent session active';
 const POWER_REQUEST_SYSTEM_REQUIRED = 1;
 
 const commandOnPath = name =>
@@ -72,9 +72,9 @@ const windowsPowerRequestScript = () => {
   return [
     `$ErrorActionPreference = ${psString('Stop')}`,
     '$assembly = [AppDomain]::CurrentDomain.DefineDynamicAssembly(' +
-      `(New-Object Reflection.AssemblyName ${psString('CcCaffeine')}), ` +
+      `(New-Object Reflection.AssemblyName ${psString('AgenticInsomnia')}), ` +
       '[Reflection.Emit.AssemblyBuilderAccess]::Run)',
-    `$type = $assembly.DefineDynamicModule(${psString('CcCaffeine')})` +
+    `$type = $assembly.DefineDynamicModule(${psString('AgenticInsomnia')})` +
       `.DefineType(${psString('Power')}, [Reflection.TypeAttributes]${psString('Public, Class')})`,
     `$create = ${pinvoke('PowerCreateRequest', '[IntPtr]', '[IntPtr]')}`,
     '$create.SetImplementationFlags([Reflection.MethodImplAttributes]::PreserveSig)',
@@ -107,8 +107,8 @@ const resolveNativeCommand = platform => {
       cmd: 'systemd-inhibit',
       args: [
         '--what=sleep:idle',
-        '--who=cc-caffeine',
-        '--why=Claude Code session active',
+        '--who=agentic-insomnia',
+        '--why=coding agent session active',
         '--mode=block',
         'cat'
       ],

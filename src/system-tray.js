@@ -48,7 +48,7 @@ const createSystemTray = () => {
 
   try {
     const tray = new Tray(createIcon(false));
-    tray.setToolTip('CC-Caffeine: Normal');
+    tray.setToolTip('Agentic Insomnia: Normal');
 
     trayState = {
       tray,
@@ -69,7 +69,7 @@ const createSystemTray = () => {
       {
         label: 'Github',
         click: () => {
-          getElectron().shell.openExternal('https://github.com/dakotahp/cc-caffeine');
+          getElectron().shell.openExternal('https://github.com/dakotahp/agentic-insomnia');
         }
       },
       {
@@ -125,7 +125,7 @@ const updateTrayIcon = state => {
 
   const icon = createIcon(state.isCaffeinated);
   state.tray.setImage(icon);
-  state.tray.setToolTip(`CC-Caffeine: ${state.isCaffeinated ? 'Caffeinated' : 'Normal'}`);
+  state.tray.setToolTip(`Agentic Insomnia: ${state.isCaffeinated ? 'Caffeinated' : 'Normal'}`);
 };
 
 /**

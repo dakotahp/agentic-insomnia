@@ -1,5 +1,5 @@
 {
-  "name": "cc-caffeine",
+  "name": "dakotahp",
   "description": "Prevents your laptop from sleeping while the harness is working.",
   "owner": {
     "name": "Dakotah Peña",
@@ -7,7 +7,7 @@
   },
   "plugins": [
     {
-      "name": "cc-caffeine",
+      "name": "agentic-insomnia",
       "source": "./",
       "description": "Prevents your laptop from sleeping while the harness is working."
     }

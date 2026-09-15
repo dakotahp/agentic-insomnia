@@ -1,11 +1,11 @@
 # Architecture
 
-This guide explains how cc-caffeine works inside, for people who want to read or change the
+This guide explains how agentic-insomnia works inside, for people who want to read or change the
 code. For installing and configuring it, see the [README](README.md).
 
 ## The short version
 
-cc-caffeine keeps a computer awake while an AI coding harness (Claude Code or OpenCode) is
+agentic-insomnia keeps a computer awake while an AI coding harness (Claude Code or OpenCode) is
 working, and lets it sleep again once the harness goes idle.
 
 It runs two kinds of processes:
@@ -53,9 +53,9 @@ flowchart LR
 | `src/native.js` | Native backend: `caffeinate` on macOS, `systemd-inhibit` on Linux, a PowerShell power request on Windows. |
 | `src/system-tray.js` | **UI**: the tray icon and its Exit menu. Also owns server shutdown. |
 | `src/electron.js` | Loads Electron only when it is needed. |
-| `src/config.js` | Reads `~/.claude/plugins/cc-caffeine/config.json` once and caches it. |
+| `src/config.js` | Reads `~/.claude/plugins/agentic-insomnia/config.json` once and caches it. |
 | `hooks/hooks.json` | Claude Code hook registration used by the plugin install. |
-| `opencode/cc-caffeine.mjs` | OpenCode plugin. One file, because OpenCode loads one plugin file. |
+| `opencode/agentic-insomnia.mjs` | OpenCode plugin. One file, because OpenCode loads one plugin file. |
 | `test/` | `node --test` suites. |
 
 ## Integrations
@@ -66,7 +66,7 @@ lives in one place.
 - **Claude Code** runs hooks from `hooks/hooks.json`. `UserPromptSubmit`, `PreToolUse`, and
   `PostToolUse` call `caffeinate`. `Notification`, `Stop`, and `SessionEnd` call
   `uncaffeinate`. Each hook pipes `{"session_id": "..."}` to the command's stdin.
-- **OpenCode** has no external hooks, so `opencode/cc-caffeine.mjs` listens to in-process
+- **OpenCode** has no external hooks, so `opencode/agentic-insomnia.mjs` listens to in-process
   events. `session.created`, `command.executed`, and `message.updated` map to `caffeinate`.
   `session.idle` and `session.deleted` map to `uncaffeinate`. The plugin then runs the same
   CLI.
@@ -76,7 +76,7 @@ never sends one, the session still expires after the idle timeout.
 
 ## The session file
 
-Location: `~/.claude/plugins/cc-caffeine/sessions.json`
+Location: `~/.claude/plugins/agentic-insomnia/sessions.json`
 
 ```json
 {
@@ -213,7 +213,7 @@ as a different kind of process.
 The server runs:
 
 ```
-systemd-inhibit --what=sleep:idle --who=cc-caffeine --why="Claude Code session active" --mode=block cat
+systemd-inhibit --what=sleep:idle --who=agentic-insomnia --why="coding agent session active" --mode=block cat
 ```
 
 with stdin as a pipe from the server and stderr captured for error messages.
@@ -250,7 +250,7 @@ The script:
 
 1. declares `PowerCreateRequest` and `PowerSetRequest` from `kernel32.dll` through .NET
    reflection,
-2. creates a power request with the reason `cc-caffeine: Claude Code session active` and sets
+2. creates a power request with the reason `agentic-insomnia: coding agent session active` and sets
    `PowerRequestSystemRequired`,
 3. prints `ready`,
 4. reads stdin until it closes.
@@ -284,7 +284,7 @@ Known limits:
 
 ## Configuration
 
-`config.js` merges `~/.claude/plugins/cc-caffeine/config.json` over its defaults and caches
+`config.js` merges `~/.claude/plugins/agentic-insomnia/config.json` over its defaults and caches
 the result for the life of the process. A running server keeps its config until it restarts.
 See the README for the settings.
 

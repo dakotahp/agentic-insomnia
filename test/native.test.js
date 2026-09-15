@@ -82,8 +82,8 @@ test('resolveNativeCommand returns systemd-inhibit holding cat on Linux', () => 
   assert.strictEqual(command.cmd, 'systemd-inhibit');
   assert.deepStrictEqual(command.args, [
     '--what=sleep:idle',
-    '--who=cc-caffeine',
-    '--why=Claude Code session active',
+    '--who=agentic-insomnia',
+    '--why=coding agent session active',
     '--mode=block',
     'cat'
   ]);
@@ -119,7 +119,7 @@ test('the Windows script holds a system-required power request until stdin close
 
   assert.match(script, /DefinePInvokeMethod\('PowerCreateRequest'/);
   assert.match(script, /\$power::PowerSetRequest\(\$handle, 1\)/);
-  assert.match(script, /StringToHGlobalUni\('cc-caffeine: Claude Code session active'\)/);
+  assert.match(script, /StringToHGlobalUni\('agentic-insomnia: coding agent session active'\)/);
   assert.match(script, /WriteLine\('ready'\)/);
   assert.match(script, /\[Console\]::In\.ReadToEnd\(\)$/);
   assert.ok(!script.includes('"'), 'double quotes do not survive Windows argument quoting');
