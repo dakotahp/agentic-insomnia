@@ -1,6 +1,6 @@
 {
   "name": "dakotahp",
-  "description": "Prevents your laptop from sleeping while the harness is working.",
+  "description": "Prevents your laptop from sleeping while the coding agent is working.",
   "owner": {
     "name": "Dakotah Peña",
     "email": "git@dakotahpena.dev"
@@ -9,7 +9,7 @@
     {
       "name": "agentic-insomnia",
       "source": "./",
-      "description": "Prevents your laptop from sleeping while the harness is working."
+      "description": "Prevents your laptop from sleeping while the coding agent is working."
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 _The successor to the now deprecated [samber/cc-caffeine](https://github.com/samber/cc-caffeine)._
 
-Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `agentic-insomnia` keeps Claude Code, OpenCode, and Codex harnesses awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
+Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `agentic-insomnia` keeps the Claude Code, OpenCode, and Codex coding agents awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
 
 ## Features
 
@@ -11,13 +11,13 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
 - Supports Claude Code, OpenCode, and Codex.
 - Adds cross-platform menu bar tray indicator:
 
-​	![](./assets/icon-coffee-empty.png) Harness is idle
+​	![](./assets/icon-coffee-empty.png) Agent is idle
 
-​	![](./assets/icon-coffee-full.png) Harness is running
+​	![](./assets/icon-coffee-full.png) Agent is running
 
 ## 🎯 Installation
 
-Claude Code, OpenCode, and Codex harnesses are all supported, and the installation method is different for each.
+The Claude Code, OpenCode, and Codex coding agents are all supported, and the installation method is different for each.
 
 ### Claude Code Installation
 
@@ -79,7 +79,7 @@ Electron backend needs nothing. To change behavior, create a config file at:
 ~/.claude/plugins/agentic-insomnia/config.json
 ```
 
-Every harness shares this one location, including OpenCode and Codex. The `.claude` in the path is only a name, so you do not need Claude Code installed for it to work.
+Every coding agent shares this one location, including OpenCode and Codex. The `.claude` in the path is only a name, so you do not need Claude Code installed for it to work.
 
 The directory is created automatically on first run, but the file itself is not. Every setting is optional and falls back to the default below.
 

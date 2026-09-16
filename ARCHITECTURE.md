@@ -5,12 +5,12 @@ code. For installing and configuring it, see the [README](README.md).
 
 ## The short version
 
-agentic-insomnia keeps a computer awake while an AI coding harness (Claude Code or OpenCode) is
-working, and lets it sleep again once the harness goes idle.
+agentic-insomnia keeps a computer awake while an AI coding agent (Claude Code, OpenCode, or
+Codex) is working, and lets it sleep again once the agent goes idle.
 
 It runs two kinds of processes:
 
-- **Clients** are short-lived. The harness runs `caffeine.js caffeinate` or
+- **Clients** are short-lived. The coding agent runs `caffeine.js caffeinate` or
   `caffeine.js uncaffeinate` on its events. A client records the session in a JSON file, makes
   sure a server is running, and exits. Clients never load Electron, so hooks stay fast.
 - **The server** is long-lived. Every 5 seconds it reads the session file. While at least one
@@ -20,9 +20,10 @@ The session file is the only channel between them. Clients and the server never 
 
 ```mermaid
 flowchart LR
-  subgraph Harness
+  subgraph Agents[Coding agents]
     CC[Claude Code hooks]
     OC[OpenCode plugin]
+    CX[Codex hooks]
   end
   subgraph Server[caffeine.js server]
     P[poller] --> B[backend]
@@ -30,6 +31,7 @@ flowchart LR
   end
   CC -->|caffeinate / uncaffeinate| CLI[caffeine.js client]
   OC -->|caffeinate / uncaffeinate| CLI
+  CX -->|caffeinate / uncaffeinate| CLI
   CLI -->|write, locked| SF[(sessions.json)]
   CLI -->|start if not running| Server
   P -->|read every 5s, locked| SF
@@ -60,8 +62,8 @@ flowchart LR
 
 ## Integrations
 
-Both harnesses end up calling the same two client commands, so all session and timeout logic
-lives in one place.
+Every coding agent ends up calling the same two client commands, so all session and timeout
+logic lives in one place.
 
 - **Claude Code** runs hooks from `hooks/hooks.json`. `UserPromptSubmit`, `PreToolUse`, and
   `PostToolUse` call `caffeinate`. `Stop` and `SessionEnd` call `uncaffeinate`. Each hook
@@ -79,8 +81,8 @@ lives in one place.
   `test/plugin-manifests.test.js` guards this: it fails if a hook lands on an event Codex does
   not define, unless the event is listed as Claude-only on purpose.
 
-The `uncaffeinate` calls are a shortcut, not the only release path. If a harness crashes and
-never sends one, the session still expires after `stale_session_minutes`.
+The `uncaffeinate` calls are a shortcut, not the only release path. If a coding agent crashes
+and never sends one, the session still expires after `stale_session_minutes`.
 
 ## The session file
 

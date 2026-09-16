@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "agentic-insomnia",
-      "description": "Prevents your laptop from sleeping while the harness is working.",
+      "description": "Prevents your laptop from sleeping while the coding agent is working.",
       "source": {
         "source": "local",
         "path": "./"
