@@ -1,6 +1,6 @@
 {
     "name": "agentic-insomnia",
-    "description": "Prevents your laptop from sleeping while the harness is working.",
+    "description": "Prevents your laptop from sleeping while the coding agent is working.",
     "version": "1.1.0",
     "author": {
         "name": "Dakotah Peña",
