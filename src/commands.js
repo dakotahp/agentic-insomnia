@@ -99,7 +99,7 @@ const handleVersion = () => {
       pluginVersion = 'not found';
     }
 
-    console.error('=== CC-Caffeine Version ===');
+    console.error('=== Agentic Insomnia Version ===');
     console.error(`Package version: ${packageVersion}`);
     console.error(`Plugin version:  ${pluginVersion}`);
 
@@ -120,7 +120,7 @@ const handleStatus = async () => {
     const serverRunning = await isServerRunningWithLock();
     const activeSessions = await getActiveSessionsWithLock();
 
-    console.error('=== CC-Caffeine Status ===');
+    console.error('=== Agentic Insomnia Status ===');
     console.error(`Server Status: ${serverRunning ? '✅ Running' : '❌ Stopped'}`);
     console.error(`Sleep Backend: ${getSleepBackend()}`);
     console.error(`Active Sessions: ${activeSessions.length}`);

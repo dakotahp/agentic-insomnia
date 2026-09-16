@@ -1,7 +1,7 @@
 {
-  "name": "cc-caffeine",
+  "name": "agentic-insomnia",
   "version": "0.6.1",
-  "description": "Prevents your computer from sleeping while Claude Code works hard",
+  "description": "Prevents your computer from sleeping while a coding agent works hard",
   "main": "caffeine.js",
   "scripts": {
     "start": "npm run server",
@@ -48,7 +48,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dakotahp/cc-caffeine.git"
+    "url": "https://github.com/dakotahp/agentic-insomnia.git"
   },
   "os": [
     "darwin",

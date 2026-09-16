@@ -1,13 +1,13 @@
 {
-    "name": "cc-caffeine",
+    "name": "agentic-insomnia",
     "description": "Prevents your laptop from sleeping while the harness is working.",
     "version": "0.6.1",
     "author": {
         "name": "Dakotah Peña",
         "email": "git@dakotahpena.dev"
     },
-    "homepage": "https://github.com/dakotahp/cc-caffeine",
-    "repository": "https://github.com/dakotahp/cc-caffeine",
+    "homepage": "https://github.com/dakotahp/agentic-insomnia",
+    "repository": "https://github.com/dakotahp/agentic-insomnia",
     "license": "MIT",
     "keywords": [
         "claude-code",

@@ -1,4 +1,4 @@
-# CC-Caffeine
+# Agentic Insomnia
 
 Keeps the computer awake while Claude Code or OpenCode works. Short-lived CLI clients
 record sessions in a locked JSON file. A long-lived server polls it and holds a sleep
@@ -35,7 +35,7 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
 | Tray UI and shutdown | `src/system-tray.js` |
 | Lazy Electron loader | `src/electron.js` |
 | Config (cached) | `src/config.js` |
-| Integrations | `hooks/hooks.json`, `opencode/cc-caffeine.mjs` |
+| Integrations | `hooks/hooks.json`, `opencode/agentic-insomnia.mjs` |
 
 ## Rules and gotchas
 
@@ -55,7 +55,7 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
   Servers must keep refreshing it on every poll.
 - Config is cached per process. Restart the server after config changes.
 - The background server discards its logs. Debug with a foreground server.
-- `opencode/cc-caffeine.mjs` stays one file with only a default export.
+- `opencode/agentic-insomnia.mjs` stays one file with only a default export.
 - CI (`.github/workflows/ci.yml`) runs lint and tests on Ubuntu. Tests must not depend
   on the host OS: pin the platform with `native.setDependencies` or `pid.setDependencies`, and mock
   config/electron through `require.cache`.

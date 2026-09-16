@@ -5,12 +5,12 @@ const os = require('node:os');
 const path = require('node:path');
 
 const makeTempHome = () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-caffeine-config-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-insomnia-config-'));
   os.homedir = () => home;
   return home;
 };
 
-const configDir = home => path.join(home, '.claude', 'plugins', 'cc-caffeine');
+const configDir = home => path.join(home, '.claude', 'plugins', 'agentic-insomnia');
 
 test('getConfig returns defaults when no config file exists', () => {
   makeTempHome();

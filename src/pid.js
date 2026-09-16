@@ -16,7 +16,7 @@ const { spawn } = require('child_process');
 const lockfile = require('proper-lockfile');
 const { windowsPowerShellPath } = require('./native');
 
-const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'cc-caffeine');
+const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
 const PID_FILE = path.join(CONFIG_DIR, 'server.pid');
 const STARTUP_FILE = path.join(CONFIG_DIR, 'server.starting');
 const HEARTBEAT_FILE = path.join(CONFIG_DIR, 'server.heartbeat');

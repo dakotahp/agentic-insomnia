@@ -5,9 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 
 const makeTempHome = () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-caffeine-pid-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-insomnia-pid-'));
   os.homedir = () => home;
-  fs.mkdirSync(path.join(home, '.claude', 'plugins', 'cc-caffeine'), { recursive: true });
+  fs.mkdirSync(path.join(home, '.claude', 'plugins', 'agentic-insomnia'), { recursive: true });
   return home;
 };
 
@@ -34,7 +34,7 @@ test('writePidFile then readPidFile round-trips', async () => {
 
 test('readPidFile returns null for non-numeric content', async () => {
   const home = makeTempHome();
-  const pidFile = path.join(home, '.claude', 'plugins', 'cc-caffeine', 'server.pid');
+  const pidFile = path.join(home, '.claude', 'plugins', 'agentic-insomnia', 'server.pid');
   fs.writeFileSync(pidFile, 'not-a-number');
 
   const { readPidFile } = loadPid();
@@ -160,7 +160,7 @@ test('commandLineQuery only ever embeds an integer PID', () => {
 });
 
 const heartbeatPath = home =>
-  path.join(home, '.claude', 'plugins', 'cc-caffeine', 'server.heartbeat');
+  path.join(home, '.claude', 'plugins', 'agentic-insomnia', 'server.heartbeat');
 
 test('writePidFile also writes a fresh heartbeat for that PID', async () => {
   const home = makeTempHome();
@@ -219,7 +219,7 @@ test('validatePid recognizes a native node caffeine server', async () => {
   makeTempHome();
   const { spawn } = require('child_process');
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-caffeine-validate-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-insomnia-validate-'));
   const script = path.join(dir, 'caffeine.js');
   fs.writeFileSync(script, 'setTimeout(() => {}, 10000);\n');
 

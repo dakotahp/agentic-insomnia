@@ -5,7 +5,7 @@ const os = require('os');
 const fs = require('fs');
 
 /**
- * Main entry point for CC-Caffeine application
+ * Main entry point for the Agentic Insomnia application
  *
  * This file contains the main() function and orchestrates all modules.
  * All functionality has been split into separate modules for better organization.
@@ -20,7 +20,7 @@ const {
 } = require('./src/commands');
 const { handleServer } = require('./src/server');
 
-const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'cc-caffeine');
+const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
 
 const ensureConfigDir = () => {
   try {
