@@ -1,0 +1,41 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agentic-insomnia",
+  "version": "1.0.0",
+  "description": "Prevents your laptop from sleeping while the harness is working.",
+  "author": {
+    "name": "Dakotah Peña",
+    "email": "git@dakotahpena.dev",
+    "url": "https://dakotahpena.dev"
+  },
+  "homepage": "https://github.com/dakotahp/agentic-insomnia",
+  "repository": "https://github.com/dakotahp/agentic-insomnia",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "codex-plugin",
+    "claude-code",
+    "claude-code-plugin",
+    "open-code",
+    "open-code-plugin",
+    "plugin",
+    "nap",
+    "sleep",
+    "sleep-prevention",
+    "caffeine",
+    "caffeinate",
+    "system-tray"
+  ],
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json",
+      "interface": {
+        "displayName": "Agentic Insomnia",
+        "shortDescription": "Keeps your computer awake while the agent works.",
+        "longDescription": "Holds a sleep lock while a coding agent session is active, then releases it once the session goes idle so your usual power settings take over.",
+        "developerName": "Dakotah Peña",
+        "category": "productivity"
+      }
+    }
+  }
+}

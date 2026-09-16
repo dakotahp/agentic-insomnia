@@ -2,13 +2,13 @@
 
 _The successor to the now deprecated [samber/cc-caffeine](https://github.com/samber/cc-caffeine)._
 
-Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `agentic-insomnia` keeps Claude Code and OpenCode harnesses awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
+Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `agentic-insomnia` keeps Claude Code, OpenCode, and Codex harnesses awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
 
 ## Features
 
 - Cross-platform support for MacOS, Linux, and Windows.
   - On MacOS, Linux, and Windows it can use the OS's own sleep tool to stay awake, without Electron (when configured).
-- Supports Claude Code and OpenCode.
+- Supports Claude Code, OpenCode, and Codex.
 - Adds cross-platform menu bar tray indicator:
 
 ​	![](./assets/icon-coffee-empty.png) Harness is idle
@@ -17,7 +17,7 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
 
 ## 🎯 Installation
 
-Claude Code and OpenCode harnesses are both supported, and the installation method is different for each.
+Claude Code, OpenCode, and Codex harnesses are all supported, and the installation method is different for each.
 
 ### Claude Code Installation
 
@@ -47,6 +47,29 @@ Replace `/absolute/path/to/agentic-insomnia` with wherever you cloned this repo.
 
 OpenCode picks up the plugin the next time it starts. Activity keeps the session alive, and the server releases sleep prevention after the idle timeout.
 
+### Codex Installation
+
+Codex reads lifecycle hooks in the same format Claude Code does, so it installs the same bundled hooks.
+
+Register the repo as a marketplace, then install the plugin:
+
+```bash
+codex plugin marketplace add dakotahp/agentic-insomnia
+```
+
+Then install `agentic-insomnia` from that marketplace and start a new session.
+
+Codex will not run a plugin's hooks until you review and trust them. Approve the hook definition when Codex prompts you, or the plugin stays installed but does nothing.
+
+#### Manual Codex Hook Configuration
+
+If you would rather not use a marketplace, copy the hooks into `~/.codex/hooks.json` (all projects) or `<repo>/.codex/hooks.json` (one project). Use the same JSON as [Manual Claude Code Hook Configuration](#manual-claude-code-hook-configuration) below, with two changes:
+
+- Replace `node /path/to/agentic-insomnia/caffeine.js` with the path to your checkout, as in the Claude Code example.
+- Drop the `Notification` block. Codex has no `Notification` event. Nothing breaks without it, because the server still releases sleep prevention after the idle timeout.
+
+Project-local hooks run only when you trust the project's `.codex/` layer.
+
 ## ⚙️ Configuration (Optional)
 
 agentic-insomnia works out of the box with **zero configuration** — the default
@@ -55,6 +78,8 @@ Electron backend needs nothing. To change behavior, create a config file at:
 ```
 ~/.claude/plugins/agentic-insomnia/config.json
 ```
+
+Every harness shares this one location, including OpenCode and Codex. The `.claude` in the path is only a name, so you do not need Claude Code installed for it to work.
 
 The directory is created automatically on first run, but the file itself is not. Every setting is optional and falls back to the default below.
 

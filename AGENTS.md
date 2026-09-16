@@ -1,6 +1,6 @@
 # Agentic Insomnia
 
-Keeps the computer awake while Claude Code or OpenCode works. Short-lived CLI clients
+Keeps the computer awake while Claude Code, OpenCode, or Codex works. Short-lived CLI clients
 record sessions in a locked JSON file. A long-lived server polls it and holds a sleep
 lock while any session is active.
 
@@ -36,6 +36,7 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
 | Lazy Electron loader | `src/electron.js` |
 | Config (cached) | `src/config.js` |
 | Integrations | `hooks/hooks.json`, `opencode/agentic-insomnia.mjs` |
+| Plugin manifests | `plugin.json` (Codex), `.claude-plugin/plugin.json` (Claude Code) |
 
 ## Rules and gotchas
 
@@ -60,6 +61,12 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
   on the host OS: pin the platform with `native.setDependencies` or `pid.setDependencies`, and mock
   config/electron through `require.cache`.
 - `test/pid.test.js` spawns `ps` and fails with EPERM in sandboxes. That is not a bug.
+- `hooks/hooks.json` is shared by Claude Code and Codex. Codex does not define every Claude
+  Code event, so a hook on an event Codex lacks silently never fires there.
+  `test/plugin-manifests.test.js` fails on one unless it is listed as Claude-only on purpose.
+- The version appears in `package.json`, `.claude-plugin/plugin.json`, and `plugin.json`. CI
+  fails if they differ, and release-please bumps all three. A new manifest with a version
+  field must be added to `release-please-config.json` and to the CI check together.
 - Update `README.md` for user-visible changes, `ARCHITECTURE.md` for design changes.
 
 ## Versioning and releases

@@ -70,6 +70,14 @@ lives in one place.
   events. `session.created`, `command.executed`, and `message.updated` map to `caffeinate`.
   `session.idle` and `session.deleted` map to `uncaffeinate`. The plugin then runs the same
   CLI.
+- **Codex** reads the same `hooks/hooks.json`. Its hook format, event names, and
+  `{"session_id": "..."}` stdin payload match Claude Code's, and it reads `CLAUDE_PLUGIN_ROOT`
+  as an alias for its own `PLUGIN_ROOT`, so the file needs no Codex-specific version. Codex
+  finds it through the root `plugin.json` (`extensions.com.openai.hooks`), which is the
+  portable manifest Codex prefers over the `.claude-plugin/plugin.json` Claude Code reads.
+  Codex has no `Notification` event, so that one block applies to Claude Code only.
+  `test/plugin-manifests.test.js` guards this: it fails if a hook lands on an event Codex does
+  not define, unless the event is listed as Claude-only on purpose.
 
 The `uncaffeinate` calls are a shortcut, not the only release path. If a harness crashes and
 never sends one, the session still expires after `stale_session_minutes`.
