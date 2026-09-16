@@ -1,0 +1,21 @@
+{
+  "name": "dakotahp",
+  "interface": {
+    "displayName": "Dakotah Peña"
+  },
+  "plugins": [
+    {
+      "name": "agentic-insomnia",
+      "description": "Prevents your laptop from sleeping while the harness is working.",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "productivity"
+    }
+  ]
+}

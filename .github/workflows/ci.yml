@@ -27,11 +27,13 @@ jobs:
       - name: Check package.json and plugin.json versions match
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          PLUGIN_VERSION=$(node -p "require('./.claude-plugin/plugin.json').version")
-          if [ "$PACKAGE_VERSION" != "$PLUGIN_VERSION" ]; then
-            echo "Version mismatch: package.json is $PACKAGE_VERSION, plugin.json is $PLUGIN_VERSION"
-            exit 1
-          fi
+          for MANIFEST in .claude-plugin/plugin.json plugin.json; do
+            PLUGIN_VERSION=$(node -p "require('./$MANIFEST').version")
+            if [ "$PACKAGE_VERSION" != "$PLUGIN_VERSION" ]; then
+              echo "Version mismatch: package.json is $PACKAGE_VERSION, $MANIFEST is $PLUGIN_VERSION"
+              exit 1
+            fi
+          done
 
       - name: Lint
         run: npm run lint
