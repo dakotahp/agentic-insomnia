@@ -61,6 +61,7 @@ The directory is created automatically on first run, but the file itself is not.
 ```json
 {
   "session_timeout_minutes": 15,
+  "idle_timeout_minutes": 30,
   "icon_theme": "orange",
   "sleep_backend": "electron"
 }
@@ -69,6 +70,7 @@ The directory is created automatically on first run, but the file itself is not.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
+| `idle_timeout_minutes` | `30` | Minutes with no active session before the background server exits and removes itself. The next hook starts it again. Applies to both sleep backends. `0` disables this |
 | `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
 | `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS sleep tool: `caffeinate` on MacOS, `systemd-inhibit` on Linux, a PowerShell power request on Windows; no Electron, no tray) |
 

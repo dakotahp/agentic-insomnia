@@ -208,7 +208,8 @@ const startServer = async () => {
       onStateChange = undefined;
     }
 
-    startPolling(state, CHECK_INTERVAL, onStateChange, shutDownWhenSuperseded(quit));
+    const shutDown = shutDownWhenSuperseded(quit);
+    startPolling(state, CHECK_INTERVAL, onStateChange, shutDown, shutDown);
 
     // Only setup signal handlers if server actually started
     if (state) {
@@ -248,7 +249,8 @@ const startNativeServer = async () => {
       caffeinateProcess: null
     };
 
-    startPolling(state, CHECK_INTERVAL, undefined, shutDownWhenSuperseded(() => process.exit(0)));
+    const shutDown = shutDownWhenSuperseded(() => process.exit(0));
+    startPolling(state, CHECK_INTERVAL, undefined, shutDown, shutDown);
 
     process.on('SIGINT', async () => {
       console.error('Received SIGINT, shutting down server...');
