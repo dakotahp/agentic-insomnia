@@ -100,6 +100,13 @@ Location: `~/.claude/plugins/agentic-insomnia/sessions.json`
 
 ## Server lifecycle
 
+### Idle exit
+
+The server is detached, so nothing else ends it when the plugin is removed. The poller tracks
+`state.idleSince`, the time of the first poll with no active session. After
+`idle_timeout_minutes` (default 30, `0` disables) the server shuts down like an ownership
+loss: it releases the lock and removes its PID file. The next hook starts a new server.
+
 ### Starting exactly one server
 
 Hooks fire in bursts, and several clients may find "no server" at the same moment. Startup is

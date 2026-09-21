@@ -9,7 +9,7 @@ const mockModule = (relativePath, exports) => {
   require.cache[resolved] = { id: resolved, filename: resolved, loaded: true, exports };
 };
 
-const loadPollerWithPidFile = pidFileContent => {
+const loadPollerWithPidFile = (pidFileContent, config = {}) => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-insomnia-poller-'));
   os.homedir = () => home;
   const configDir = path.join(home, '.claude', 'plugins', 'agentic-insomnia');
@@ -23,6 +23,7 @@ const loadPollerWithPidFile = pidFileContent => {
     getActiveSessionsWithLock: async () => [],
     cleanupExpiredSessionsWithLock: async () => {}
   });
+  mockModule('../src/config', { getConfig: () => ({ idle_timeout_minutes: 30, ...config }) });
   mockModule('../src/backend', {
     enableCaffeine: async () => {},
     disableCaffeine: async () => {}
@@ -94,6 +95,68 @@ test('checkOwnership stops polling and reports when another PID owns the file', 
     assert.strictEqual(await checkOwnership(state, callback), false);
     assert.strictEqual(state.pollInterval, null);
     assert.deepStrictEqual(calls, [state]);
+  } finally {
+    clearInterval(interval);
+  }
+});
+
+const MINUTE = 60 * 1000;
+
+test('checkIdle shuts the server down after the idle timeout', async () => {
+  const { checkIdle } = loadPollerWithPidFile();
+  const { calls, callback } = recordCalls();
+  const state = { idleSince: Date.now() - 31 * MINUTE };
+
+  assert.strictEqual(await checkIdle(state, false, callback), true);
+  assert.deepStrictEqual(calls, [state]);
+});
+
+test('checkIdle keeps the server before the idle timeout', async () => {
+  const { checkIdle } = loadPollerWithPidFile();
+  const { calls, callback } = recordCalls();
+  const state = { idleSince: Date.now() - 5 * MINUTE };
+
+  assert.strictEqual(await checkIdle(state, false, callback), false);
+  assert.strictEqual(calls.length, 0);
+});
+
+test('checkIdle starts the idle clock on the first idle poll', async () => {
+  const { checkIdle } = loadPollerWithPidFile();
+  const { callback } = recordCalls();
+  const state = {};
+
+  await checkIdle(state, false, callback);
+  assert.ok(state.idleSince <= Date.now() && state.idleSince > Date.now() - MINUTE);
+});
+
+test('checkIdle resets the idle clock when a session is active', async () => {
+  const { checkIdle } = loadPollerWithPidFile();
+  const { calls, callback } = recordCalls();
+  const state = { idleSince: Date.now() - 31 * MINUTE };
+
+  assert.strictEqual(await checkIdle(state, true, callback), false);
+  assert.strictEqual(state.idleSince, null);
+  assert.strictEqual(calls.length, 0);
+});
+
+test('checkIdle never shuts down when idle_timeout_minutes is 0', async () => {
+  const { checkIdle } = loadPollerWithPidFile(undefined, { idle_timeout_minutes: 0 });
+  const { calls, callback } = recordCalls();
+  const state = { idleSince: Date.now() - 24 * 60 * MINUTE };
+
+  assert.strictEqual(await checkIdle(state, false, callback), false);
+  assert.strictEqual(calls.length, 0);
+});
+
+test('checkIdle stops polling when it shuts down', async () => {
+  const { checkIdle } = loadPollerWithPidFile();
+  const { callback } = recordCalls();
+  const interval = setInterval(() => {}, 60000);
+  const state = { pollInterval: interval, idleSince: Date.now() - 31 * MINUTE };
+
+  try {
+    await checkIdle(state, false, callback);
+    assert.strictEqual(state.pollInterval, null);
   } finally {
     clearInterval(interval);
   }

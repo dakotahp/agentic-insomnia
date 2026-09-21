@@ -9,15 +9,17 @@
 const { getActiveSessionsWithLock, cleanupExpiredSessionsWithLock } = require('./session');
 const { enableCaffeine, disableCaffeine } = require('./backend');
 const { isPidFileOwnedByOther, writeHeartbeat } = require('./pid');
+const { getConfig } = require('./config');
 
 /**
  * Update caffeine status based on active sessions
  * @param {object} state - Tray state object
  * @param {(state: object) => void} [onStateChange] - Optional UI callback
+ * @returns {Promise<boolean>} True if any session is active (also true when the check failed)
  */
 const updateCaffeineStatus = async (state, onStateChange) => {
   if (!state) {
-    return;
+    return true;
   }
 
   try {
@@ -34,9 +36,39 @@ const updateCaffeineStatus = async (state, onStateChange) => {
     if (onStateChange) {
       onStateChange(state);
     }
+
+    return shouldCaffeinate;
   } catch (error) {
     console.error('Error updating caffeine status:', error);
+    return true;
   }
+};
+
+/**
+ * Track how long no session has been active and shut the server down once
+ * `idle_timeout_minutes` passes. A value of 0 disables the timeout.
+ * @param {object} state - Tray state object
+ * @param {boolean} hasActiveSessions - Result of the latest session check
+ * @param {(state: object) => Promise<void>} onIdle - Shuts this server down
+ * @returns {Promise<boolean>} True if the server shut down
+ */
+const checkIdle = async (state, hasActiveSessions, onIdle) => {
+  if (hasActiveSessions) {
+    state.idleSince = null;
+    return false;
+  }
+
+  state.idleSince = state.idleSince || Date.now();
+  const idleTimeoutMs = getConfig().idle_timeout_minutes * 60 * 1000;
+
+  if (!(idleTimeoutMs > 0) || Date.now() - state.idleSince < idleTimeoutMs) {
+    return false;
+  }
+
+  console.error('No active sessions for too long, shutting this server down');
+  stopPolling(state);
+  await onIdle(state);
+  return true;
 };
 
 /**
@@ -79,14 +111,18 @@ const refreshHeartbeat = async () => {
  * @param {number} [interval=10000] - Poll interval in ms
  * @param {(state: object) => void} [onStateChange] - Optional UI callback
  * @param {(state: object) => Promise<void>} [onOwnershipLost] - Called when another server owns the PID file
+ * @param {(state: object) => Promise<void>} [onIdle] - Called when no session has been active for `idle_timeout_minutes`
  */
-const startPolling = (state, interval = 10000, onStateChange, onOwnershipLost) => {
+const startPolling = (state, interval = 10000, onStateChange, onOwnershipLost, onIdle) => {
   const poll = async () => {
     if (onOwnershipLost && !(await checkOwnership(state, onOwnershipLost))) {
       return;
     }
     await refreshHeartbeat();
-    await updateCaffeineStatus(state, onStateChange);
+    const hasActiveSessions = await updateCaffeineStatus(state, onStateChange);
+    if (onIdle) {
+      await checkIdle(state, hasActiveSessions, onIdle);
+    }
   };
 
   poll();
@@ -115,6 +151,7 @@ const stopPolling = state => {
 module.exports = {
   updateCaffeineStatus,
   checkOwnership,
+  checkIdle,
   startPolling,
   stopPolling
 };

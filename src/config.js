@@ -11,6 +11,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 const DEFAULTS = {
   session_timeout_minutes: 15,
+  idle_timeout_minutes: 30, // 0 disables
   icon_theme: 'orange', // 'orange' | 'monochrome'
   sleep_backend: 'electron' // 'electron' | 'native'
 };
