@@ -18,7 +18,6 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
 - [📋 Local Development Requirements](#-local-development-requirements)
 - [🛠 Contributing](#-contributing)
 - [🚀 Using the CLI directly](#-using-the-cli-directly)
-- [💫 Fuel the Revolution](#-fuel-the-revolution)
 - [📄 License](#-license)
 
 <!-- /toc -->
@@ -220,14 +219,8 @@ node caffeine.js status
 
 Each `caffeinate` with the same session id refreshes it, so a script can call it in a loop. Forgetting `uncaffeinate` is safe: the session is dropped after `stale_session_minutes` and the lock is released anyway.
 
-## 💫 Fuel the Revolution
-
-- ⭐️ **Star this repo**
-- ☕️ **Buy me a coffee**
-- 🚀 **Sponsor the revolution**
-
-*Every sponsor gets a virtual high-five and the knowledge that somewhere, a developer is "coding" from a ski track because of you.* ✨
-
 ## 📄 License
 
-MIT. Use it, modify it, share it. Copyright © 2025 Samuel Berthe.
+MIT. Use it, modify it, share it.
+
+Copyright © 2025 Samuel Berthe, © 2026 Dakotah Peña. This project began as a fork of [samber/cc-caffeine](https://github.com/samber/cc-caffeine).
