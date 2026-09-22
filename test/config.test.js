@@ -20,6 +20,8 @@ test('getConfig returns defaults when no config file exists', () => {
   const config = getConfig();
 
   assert.strictEqual(config.session_timeout_minutes, 15);
+  assert.strictEqual(config.idle_timeout_minutes, 30);
+  assert.strictEqual(config.grace_period_minutes, 5);
   assert.strictEqual(config.icon_theme, 'orange');
   assert.strictEqual(config.sleep_backend, 'electron');
 });

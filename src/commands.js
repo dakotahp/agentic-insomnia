@@ -133,6 +133,9 @@ const handleStatus = async () => {
         console.error(`  ${index + 1}. ${session.id}`);
         console.error(`     Created: ${created}`);
         console.error(`     Last Activity: ${lastActivity}`);
+        if (session.ended_at) {
+          console.error(`     Ended: ${new Date(session.ended_at).toLocaleString()} (grace)`);
+        }
         if (session.project_dir) {
           console.error(`     Project: ${session.project_dir}`);
         }
@@ -141,6 +144,9 @@ const handleStatus = async () => {
 
     console.error(
       `\nSession timeout: ${getConfig().session_timeout_minutes} minutes of inactivity`
+    );
+    console.error(
+      `Grace period: ${getConfig().grace_period_minutes} minutes after a turn ends`
     );
   } catch (error) {
     console.error('Error getting status:', error.message);

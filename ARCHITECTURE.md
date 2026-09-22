@@ -90,10 +90,32 @@ Location: `~/.claude/plugins/agentic-insomnia/sessions.json`
 }
 ```
 
-- `caffeinate` adds a session, or updates `last_activity` if it exists.
-  `uncaffeinate` removes it.
-- A session expires after `session_timeout_minutes` (default 15) without activity. Expired
-  sessions are removed on every add, remove, and poll.
+- `caffeinate` adds a session, or updates `last_activity` and clears `ended_at` if it
+  exists. `uncaffeinate` stamps `ended_at` rather than removing the session. Several hooks
+  fire `uncaffeinate` for one turn, so an already stamped session is left alone and the
+  grace window cannot be pushed forward.
+- `sessionHoldsLock` decides whether a session still holds the sleep lock. A session with
+  no `ended_at` holds it until `session_timeout_minutes` (default 15) of silence, which is
+  the fallback for a session whose `Stop` hook never fired. A session with `ended_at` holds
+  it until `grace_period_minutes` (default 5) have passed, and the session timeout no longer
+  applies. Sessions that hold nothing are removed on every add, remove, and poll.
+
+### Why the grace period exists
+
+An OS sleep assertion blocks sleep without resetting the OS idle clock. On macOS that clock
+counts from the last input event and keeps running while the lock is held. So releasing the
+lock the instant a turn ended let the machine sleep during the next gap between turns, even a
+gap of a few seconds, once the idle clock had passed the user's sleep timeout. Holding the
+lock across those gaps is the only fix that works on every backend.
+
+macOS can truly reset the idle clock with `caffeinate -u`, but its man page states that this
+turns the display on when the display is off. That costs battery and exposes the screen, and
+Electron's `powerSaveBlocker` has no equivalent call. Both backends must behave alike, so it
+is not used.
+
+The `Notification` hook is deliberately absent from `hooks/hooks.json`. It fires when Claude
+asks the user for permission, which means waiting for the user, not finished working. Calling
+`uncaffeinate` there released the lock in the middle of a turn.
 - Many hooks can fire at once, so every read and write holds a
   [proper-lockfile](https://github.com/moxystudio/node-proper-lockfile) lock. The lock is held
   only for the read-modify-write itself.
