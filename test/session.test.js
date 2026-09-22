@@ -17,6 +17,9 @@ const loadSession = () => {
   return require('../src/session');
 };
 
+const MINUTE = 60 * 1000;
+const iso = msAgo => new Date(Date.now() - msAgo).toISOString();
+
 const sessionsFile = home =>
   path.join(home, '.claude', 'plugins', 'agentic-insomnia', 'sessions.json');
 
@@ -129,4 +132,48 @@ test('initSessionsFile creates the file when missing', async () => {
   assert.ok(fs.existsSync(sessionsFile(home)));
   const data = await readSessionsWithLock();
   assert.deepStrictEqual(data.sessions, {});
+});
+
+test('sessionHoldsLock holds a session with recent activity and no end stamp', () => {
+  makeTempHome();
+  const { sessionHoldsLock } = loadSession();
+
+  assert.strictEqual(sessionHoldsLock({ last_activity: iso(2 * MINUTE) }, new Date()), true);
+});
+
+test('sessionHoldsLock drops a session that went quiet without an end stamp', () => {
+  makeTempHome();
+  const { sessionHoldsLock } = loadSession();
+
+  assert.strictEqual(sessionHoldsLock({ last_activity: iso(20 * MINUTE) }, new Date()), false);
+});
+
+test('sessionHoldsLock holds an ended session inside the grace window', () => {
+  makeTempHome();
+  const { sessionHoldsLock } = loadSession();
+
+  assert.strictEqual(
+    sessionHoldsLock({ last_activity: iso(3 * MINUTE), ended_at: iso(2 * MINUTE) }, new Date()),
+    true
+  );
+});
+
+test('sessionHoldsLock drops an ended session past the grace window', () => {
+  makeTempHome();
+  const { sessionHoldsLock } = loadSession();
+
+  assert.strictEqual(
+    sessionHoldsLock({ last_activity: iso(7 * MINUTE), ended_at: iso(6 * MINUTE) }, new Date()),
+    false
+  );
+});
+
+test('sessionHoldsLock ignores the session timeout once a session has ended', () => {
+  makeTempHome();
+  const { sessionHoldsLock } = loadSession();
+
+  assert.strictEqual(
+    sessionHoldsLock({ last_activity: iso(60 * MINUTE), ended_at: iso(1 * MINUTE) }, new Date()),
+    true
+  );
 });

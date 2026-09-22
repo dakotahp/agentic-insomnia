@@ -7,7 +7,25 @@ const { getConfig } = require('./config');
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
 const SESSIONS_FILE = path.join(CONFIG_DIR, 'sessions.json');
 const getSessionTimeout = () => getConfig().session_timeout_minutes * 60 * 1000;
+const getGracePeriod = () => getConfig().grace_period_minutes * 60 * 1000;
 const MAX_RETRIES = 10;
+
+/**
+ * Whether a session still holds the sleep lock.
+ *
+ * Once `ended_at` is stamped the grace window governs alone, so a long-running
+ * session that just ended is not dropped by the session timeout as well.
+ * @param {object} sessionData - A session entry from sessions.json
+ * @param {Date} now - The current time
+ * @returns {boolean}
+ */
+const sessionHoldsLock = (sessionData, now) => {
+  if (sessionData.ended_at) {
+    return now - new Date(sessionData.ended_at) < getGracePeriod();
+  }
+
+  return now - new Date(sessionData.last_activity) < getSessionTimeout();
+};
 
 const initSessionsFile = async () => {
   if (!fs.existsSync(SESSIONS_FILE)) {
@@ -218,6 +236,7 @@ const cleanupExpiredSessionsWithLock = async () => {
 
 module.exports = {
   initSessionsFile,
+  sessionHoldsLock,
   readSessionsWithLock,
   addSessionWithLock,
   removeSessionWithLock,
