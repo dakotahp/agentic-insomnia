@@ -60,3 +60,48 @@ test('getConfig falls back to defaults on invalid JSON', () => {
   assert.strictEqual(config.stale_session_minutes, 15);
   assert.strictEqual(config.tray_icon_theme, 'orange');
 });
+
+const exampleFile = home => path.join(configDir(home), 'config.example.json');
+
+test('writeExampleConfig writes every setting at its default', () => {
+  const home = makeTempHome();
+  const { writeExampleConfig, getConfig } = loadConfig();
+
+  writeExampleConfig();
+
+  const example = JSON.parse(fs.readFileSync(exampleFile(home), 'utf8'));
+  assert.deepStrictEqual(example, getConfig());
+});
+
+test('writeExampleConfig never creates or touches config.json', () => {
+  const home = makeTempHome();
+  writeConfig(home, { stale_session_minutes: 42 });
+  const { writeExampleConfig } = loadConfig();
+
+  writeExampleConfig();
+
+  const config = JSON.parse(fs.readFileSync(path.join(configDir(home), 'config.json'), 'utf8'));
+  assert.deepStrictEqual(config, { stale_session_minutes: 42 });
+});
+
+test('writeExampleConfig refreshes an example left over from older defaults', () => {
+  const home = makeTempHome();
+  const dir = configDir(home);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(exampleFile(home), '{"idle_timeout_minutes": 30}');
+  const { writeExampleConfig } = loadConfig();
+
+  writeExampleConfig();
+
+  const example = JSON.parse(fs.readFileSync(exampleFile(home), 'utf8'));
+  assert.strictEqual(example.idle_timeout_minutes, undefined);
+  assert.strictEqual(example.server_shutdown_minutes, 30);
+});
+
+test('writeExampleConfig does not throw when the config directory cannot be created', () => {
+  const home = makeTempHome();
+  fs.writeFileSync(path.join(home, '.claude'), 'not a directory');
+  const { writeExampleConfig } = loadConfig();
+
+  assert.doesNotThrow(() => writeExampleConfig());
+});
