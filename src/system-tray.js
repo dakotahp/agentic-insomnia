@@ -21,8 +21,8 @@ let trayState = null;
  * Create icon for system tray
  */
 const createIcon = isActive => {
-  const { icon_theme } = getConfig();
-  const isMono = icon_theme === 'monochrome';
+  const { tray_icon_theme } = getConfig();
+  const isMono = tray_icon_theme === 'monochrome';
   const suffix = isMono ? '-mono' : '';
   const icon = isActive
     ? `../assets/icon-coffee-full${suffix}.png`

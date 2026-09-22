@@ -46,7 +46,7 @@ const updateCaffeineStatus = async (state, onStateChange) => {
 
 /**
  * Track how long no session has been active and shut the server down once
- * `idle_timeout_minutes` passes. A value of 0 disables the timeout.
+ * `server_shutdown_minutes` passes. A value of 0 disables the timeout.
  * @param {object} state - Tray state object
  * @param {boolean} hasActiveSessions - Result of the latest session check
  * @param {(state: object) => Promise<void>} onIdle - Shuts this server down
@@ -59,7 +59,7 @@ const checkIdle = async (state, hasActiveSessions, onIdle) => {
   }
 
   state.idleSince = state.idleSince || Date.now();
-  const idleTimeoutMs = getConfig().idle_timeout_minutes * 60 * 1000;
+  const idleTimeoutMs = getConfig().server_shutdown_minutes * 60 * 1000;
 
   if (!(idleTimeoutMs > 0) || Date.now() - state.idleSince < idleTimeoutMs) {
     return false;
@@ -111,7 +111,7 @@ const refreshHeartbeat = async () => {
  * @param {number} [interval=10000] - Poll interval in ms
  * @param {(state: object) => void} [onStateChange] - Optional UI callback
  * @param {(state: object) => Promise<void>} [onOwnershipLost] - Called when another server owns the PID file
- * @param {(state: object) => Promise<void>} [onIdle] - Called when no session has been active for `idle_timeout_minutes`
+ * @param {(state: object) => Promise<void>} [onIdle] - Called when no session has been active for `server_shutdown_minutes`
  */
 const startPolling = (state, interval = 10000, onStateChange, onOwnershipLost, onIdle) => {
   const poll = async () => {

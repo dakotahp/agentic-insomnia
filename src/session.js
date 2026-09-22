@@ -6,8 +6,8 @@ const { getConfig } = require('./config');
 
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
 const SESSIONS_FILE = path.join(CONFIG_DIR, 'sessions.json');
-const getSessionTimeout = () => getConfig().session_timeout_minutes * 60 * 1000;
-const getGracePeriod = () => getConfig().grace_period_minutes * 60 * 1000;
+const getSessionTimeout = () => getConfig().stale_session_minutes * 60 * 1000;
+const getGracePeriod = () => getConfig().stay_awake_after_turn_minutes * 60 * 1000;
 const MAX_RETRIES = 10;
 
 /**
