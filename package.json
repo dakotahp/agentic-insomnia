@@ -12,8 +12,9 @@
     "server": "npx electron caffeine.js server",
     "native-server": "node caffeine.js server",
     "test": "node --test",
-    "lint": "eslint *.js src/*.js test/*.js opencode/*.mjs",
-    "lint:fix": "eslint --fix *.js src/*.js test/*.js opencode/*.mjs",
+    "toc": "node scripts/generate-toc.js",
+    "lint": "eslint *.js src/*.js scripts/*.js test/*.js opencode/*.mjs",
+    "lint:fix": "eslint --fix *.js src/*.js scripts/*.js test/*.js opencode/*.mjs",
     "format": "prettier --write *.js src/*.js || echo 'prettier not installed'"
   },
   "keywords": [

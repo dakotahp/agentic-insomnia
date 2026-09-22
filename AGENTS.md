@@ -13,6 +13,7 @@ User-facing install and config are in `README.md`.
 npm test                                   # all suites (node --test)
 node --test test/native.test.js            # one suite
 npm run lint                               # ESLint, fails on violations (as CI does)
+npm run toc                                # regenerate the README table of contents
 npm run lint:fix                           # ESLint with auto-fix
 node caffeine.js status                    # server, backend, sessions
 echo '{"session_id":"x"}' | node caffeine.js caffeinate    # also starts the server
@@ -67,6 +68,11 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
 - The version appears in `package.json`, `.claude-plugin/plugin.json`, and `plugin.json`. CI
   fails if they differ, and release-please bumps all three. A new manifest with a version
   field must be added to `release-please-config.json` and to the CI check together.
+- The README table of contents is generated. After changing an `##` or `###` heading, run
+  `npm run toc` and commit the result. `test/readme-toc.test.js` fails when it is stale, and
+  also fails on an in-page link that points at no heading.
+- Manual hook instructions point at `hooks/hooks.json` rather than copying it. An inline copy
+  drifted once already: it kept a `Notification` block after that hook was removed.
 - Update `README.md` for user-visible changes, `ARCHITECTURE.md` for design changes.
 
 ## Versioning and releases

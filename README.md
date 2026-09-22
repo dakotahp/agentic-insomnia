@@ -4,6 +4,25 @@ _The successor to the now deprecated [samber/cc-caffeine](https://github.com/sam
 
 Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `agentic-insomnia` keeps the Claude Code, OpenCode, and Codex coding agents awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
 
+<!-- toc -->
+
+- [Features](#features)
+- [🎯 Installation](#-installation)
+  - [Claude Code Installation](#claude-code-installation)
+  - [OpenCode Installation](#opencode-installation)
+  - [Codex Installation](#codex-installation)
+- [⚙️ Configuration (Optional)](#-configuration-optional)
+  - [Switching to the native backend](#switching-to-the-native-backend)
+- [🔧 Advanced Installation](#-advanced-installation)
+  - [Registering the hooks by hand](#registering-the-hooks-by-hand)
+- [📋 Local Development Requirements](#-local-development-requirements)
+- [🛠 Contributing](#-contributing)
+- [🚀 Run without Claude Code](#-run-without-claude-code)
+- [💫 Fuel the Revolution](#-fuel-the-revolution)
+- [📄 License](#-license)
+
+<!-- /toc -->
+
 ## Features
 
 - Cross-platform support for MacOS, Linux, and Windows.
@@ -61,11 +80,7 @@ Then install `agentic-insomnia` from that marketplace and start a new session.
 
 Codex will not run a plugin's hooks until you review and trust them. Approve the hook definition when Codex prompts you, or the plugin stays installed but does nothing.
 
-#### Manual Codex Hook Configuration
-
-If you would rather not use a marketplace, copy the hooks into `~/.codex/hooks.json` (all projects) or `<repo>/.codex/hooks.json` (one project). Use the same JSON as [Manual Claude Code Hook Configuration](#manual-claude-code-hook-configuration) below, replacing `node /path/to/agentic-insomnia/caffeine.js` with the path to your checkout. Every event it uses exists in Codex, so nothing needs removing.
-
-Project-local hooks run only when you trust the project's `.codex/` layer.
+If you would rather not use a marketplace, see [Advanced installation](#-advanced-installation).
 
 ## ⚙️ Configuration (Optional)
 
@@ -106,67 +121,6 @@ Then edit `config.json` and keep only the settings you want to change. `config.e
 | `server_shutdown_minutes` | `30` | Minutes with no active session before the background server exits and removes itself. The next hook starts it again. Applies to both sleep backends. `0` disables this |
 | `tray_icon_theme` | `"orange"` | Tray icon theme for the Electron backend: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
 | `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS sleep tool: `caffeinate` on MacOS, `systemd-inhibit` on Linux, a PowerShell power request on Windows; no Electron, no tray) |
-
-### Manual Claude Code Hook Configuration
-
-Hooks will be configured automatically if you import the project as a Claude Code plugin.
-
-Otherwise, configure your Claude Code hooks manually, pointing each command at the local `caffeine.js` (replace `/path/to/agentic-insomnia` with your checkout):
-
-```json
-{
-   "UserPromptSubmit": [
-     {
-       "hooks": [
-         {
-           "type": "command",
-           "command": "node /path/to/agentic-insomnia/caffeine.js caffeinate"
-         }
-       ]
-     }
-   ],
-   "PreToolUse": [
-     {
-       "hooks": [
-         {
-           "type": "command",
-           "command": "node /path/to/agentic-insomnia/caffeine.js caffeinate"
-         }
-       ]
-     }
-   ],
-   "PostToolUse": [
-     {
-       "hooks": [
-         {
-           "type": "command",
-           "command": "node /path/to/agentic-insomnia/caffeine.js caffeinate"
-         }
-       ]
-     }
-   ],
-   "Stop": [
-     {
-       "hooks": [
-         {
-           "type": "command",
-           "command": "node /path/to/agentic-insomnia/caffeine.js uncaffeinate"
-         }
-       ]
-     }
-   ],
-   "SessionEnd": [
-     {
-       "hooks": [
-         {
-           "type": "command",
-           "command": "node /path/to/agentic-insomnia/caffeine.js uncaffeinate"
-         }
-       ]
-     }
-   ]
-}
-```
 
 ### Switching to the native backend
 
@@ -209,6 +163,26 @@ Windows has no command like `caffeinate`, so agentic-insomnia starts the Windows
 - Closing the lid, pressing the power button, or choosing Sleep still puts the computer to sleep.
 - The screen can still turn off and lock.
 - Some managed work computers block PowerShell from calling Windows functions (Constrained Language Mode). The server then logs the reason once and does not prevent sleep. Use `"electron"` on those computers.
+
+## 🔧 Advanced Installation
+
+Most people should use the marketplace instructions above. Register the hooks by hand only if you do not want a marketplace, or if you run a coding agent not listed here.
+
+### Registering the hooks by hand
+
+Copy the `hooks` object out of [`hooks/hooks.json`](hooks/hooks.json) into your agent's hook configuration, and replace `${CLAUDE_PLUGIN_ROOT}` with the path to your checkout.
+
+| Coding agent | Where the hooks go |
+|---|---|
+| Claude Code | `~/.claude/settings.json` |
+| Codex | `~/.codex/hooks.json`, or `<repo>/.codex/hooks.json` for a single project |
+
+That file is the same one the plugin installs, so it stays correct as the hooks change. Every event it uses exists in both Claude Code and Codex, so nothing needs removing for either.
+
+Two things to know:
+
+- Codex will not run hooks until you review and trust them, and project-local hooks run only when you trust that project's `.codex/` layer.
+- OpenCode does not use hooks at all. Register it as a plugin, as shown in [OpenCode Installation](#opencode-installation).
 
 ## 📋 Local Development Requirements
 
