@@ -64,15 +64,15 @@ Both harnesses end up calling the same two client commands, so all session and t
 lives in one place.
 
 - **Claude Code** runs hooks from `hooks/hooks.json`. `UserPromptSubmit`, `PreToolUse`, and
-  `PostToolUse` call `caffeinate`. `Notification`, `Stop`, and `SessionEnd` call
-  `uncaffeinate`. Each hook pipes `{"session_id": "..."}` to the command's stdin.
+  `PostToolUse` call `caffeinate`. `Stop` and `SessionEnd` call `uncaffeinate`. Each hook
+  pipes `{"session_id": "..."}` to the command's stdin.
 - **OpenCode** has no external hooks, so `opencode/agentic-insomnia.mjs` listens to in-process
   events. `session.created`, `command.executed`, and `message.updated` map to `caffeinate`.
   `session.idle` and `session.deleted` map to `uncaffeinate`. The plugin then runs the same
   CLI.
 
 The `uncaffeinate` calls are a shortcut, not the only release path. If a harness crashes and
-never sends one, the session still expires after the idle timeout.
+never sends one, the session still expires after `stale_session_minutes`.
 
 ## The session file
 
@@ -95,10 +95,11 @@ Location: `~/.claude/plugins/agentic-insomnia/sessions.json`
   fire `uncaffeinate` for one turn, so an already stamped session is left alone and the
   grace window cannot be pushed forward.
 - `sessionHoldsLock` decides whether a session still holds the sleep lock. A session with
-  no `ended_at` holds it until `session_timeout_minutes` (default 15) of silence, which is
+  no `ended_at` holds it until `stale_session_minutes` (default 15) of silence, which is
   the fallback for a session whose `Stop` hook never fired. A session with `ended_at` holds
-  it until `grace_period_minutes` (default 5) have passed, and the session timeout no longer
-  applies. Sessions that hold nothing are removed on every add, remove, and poll.
+  it until `stay_awake_after_turn_minutes` (default 5) have passed, and the stale-session
+  timeout no longer applies. Sessions that hold nothing are removed on every add, remove,
+  and poll.
 
 ### Why the grace period exists
 
@@ -126,7 +127,7 @@ asks the user for permission, which means waiting for the user, not finished wor
 
 The server is detached, so nothing else ends it when the plugin is removed. The poller tracks
 `state.idleSince`, the time of the first poll with no active session. After
-`idle_timeout_minutes` (default 30, `0` disables) the server shuts down like an ownership
+`server_shutdown_minutes` (default 30, `0` disables) the server shuts down like an ownership
 loss: it releases the lock and removes its PID file. The next hook starts a new server.
 
 ### Starting exactly one server
@@ -316,6 +317,10 @@ Known limits:
 `config.js` merges `~/.claude/plugins/agentic-insomnia/config.json` over its defaults and caches
 the result for the life of the process. A running server keeps its config until it restarts.
 See the README for the settings.
+
+Each setting is named after the thing it controls rather than after its timer:
+`stay_awake_after_turn_minutes` governs the machine, `stale_session_minutes` a session record,
+and `server_shutdown_minutes` the background server.
 
 ## Testing
 

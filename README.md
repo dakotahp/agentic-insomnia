@@ -60,20 +60,20 @@ The directory is created automatically on first run, but the file itself is not.
 
 ```json
 {
-  "session_timeout_minutes": 15,
-  "grace_period_minutes": 5,
-  "idle_timeout_minutes": 30,
-  "icon_theme": "orange",
+  "stay_awake_after_turn_minutes": 5,
+  "stale_session_minutes": 15,
+  "server_shutdown_minutes": 30,
+  "tray_icon_theme": "orange",
   "sleep_backend": "electron"
 }
 ```
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `session_timeout_minutes` | `15` | Minutes of inactivity before a session that never ended cleanly expires |
-| `grace_period_minutes` | `5` | Minutes the sleep lock is held after a turn ends. This covers the short gaps between turns, so your machine cannot sleep in the middle of a workflow. `0` releases the lock as soon as a turn ends |
-| `idle_timeout_minutes` | `30` | Minutes with no active session before the background server exits and removes itself. The next hook starts it again. Applies to both sleep backends. `0` disables this |
-| `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
+| `stay_awake_after_turn_minutes` | `5` | Minutes your machine is kept awake after a turn ends. This covers the short gaps between turns, so your machine cannot sleep in the middle of a workflow. `0` allows sleep as soon as a turn ends |
+| `stale_session_minutes` | `15` | Minutes before a session that never ended cleanly is forgotten. This is a fallback for a session whose `Stop` hook never fired, so you rarely need to change it |
+| `server_shutdown_minutes` | `30` | Minutes with no active session before the background server exits and removes itself. The next hook starts it again. Applies to both sleep backends. `0` disables this |
+| `tray_icon_theme` | `"orange"` | Tray icon theme for the Electron backend: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
 | `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS sleep tool: `caffeinate` on MacOS, `systemd-inhibit` on Linux, a PowerShell power request on Windows; no Electron, no tray) |
 
 ### Manual Claude Code Hook Configuration
