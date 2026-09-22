@@ -23,6 +23,7 @@ const {
   markStartupInProgress
 } = require('./pid');
 const { getSleepBackend } = require('./backend');
+const { writeExampleConfig } = require('./config');
 
 const CHECK_INTERVAL = 5 * 1000; // 5 seconds
 
@@ -172,6 +173,8 @@ const shutDownWhenSuperseded = exit => async state => {
  * (no Electron); with the Electron backend it boots the headless tray app.
  */
 const startServer = async () => {
+  writeExampleConfig();
+
   if (getSleepBackend() === 'native') {
     return startNativeServer();
   }

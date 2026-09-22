@@ -322,6 +322,14 @@ Each setting is named after the thing it controls rather than after its timer:
 `stay_awake_after_turn_minutes` governs the machine, `stale_session_minutes` a session record,
 and `server_shutdown_minutes` the background server.
 
+`writeExampleConfig` writes `config.example.json` into the same directory on every server
+start. Most people install this as a plugin and never check out the repo, so without it the
+only way to learn a setting name is the README. It is generated from `DEFAULTS` rather than
+shipped as a file in the repo, so it cannot drift when a setting is added or renamed. It
+rewrites the file only when the contents differ, it never reads or writes `config.json`, and a
+failure to write it is logged and ignored. Only the server calls it: the client commands run on
+every tool call and must not do file writes they do not need.
+
 ## Testing
 
 Run `npm test` (Node's built-in `node --test`) and `npm run lint`. `npm run lint` fails on

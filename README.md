@@ -56,7 +56,16 @@ Electron backend needs nothing. To change behavior, create a config file at:
 ~/.claude/plugins/agentic-insomnia/config.json
 ```
 
-The directory is created automatically on first run, but the file itself is not. Create it by hand and add only the settings you want. Every setting is optional and falls back to the default below.
+The directory is created automatically on first run, but the file itself is not. Every setting is optional and falls back to the default below.
+
+The easiest way to start is to copy the example. The server writes a `config.example.json` beside it on every start, holding every setting at its current default, so you never have to type a setting name from memory:
+
+```bash
+cd ~/.claude/plugins/agentic-insomnia
+cp config.example.json config.json
+```
+
+Then edit `config.json` and keep only the settings you want to change. `config.example.json` is regenerated and is never read as configuration, so there is no need to keep it tidy.
 
 ```json
 {
