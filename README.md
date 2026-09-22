@@ -63,10 +63,7 @@ Codex will not run a plugin's hooks until you review and trust them. Approve the
 
 #### Manual Codex Hook Configuration
 
-If you would rather not use a marketplace, copy the hooks into `~/.codex/hooks.json` (all projects) or `<repo>/.codex/hooks.json` (one project). Use the same JSON as [Manual Claude Code Hook Configuration](#manual-claude-code-hook-configuration) below, with two changes:
-
-- Replace `node /path/to/agentic-insomnia/caffeine.js` with the path to your checkout, as in the Claude Code example.
-- Drop the `Notification` block. Codex has no `Notification` event. Nothing breaks without it, because the server still releases sleep prevention after the idle timeout.
+If you would rather not use a marketplace, copy the hooks into `~/.codex/hooks.json` (all projects) or `<repo>/.codex/hooks.json` (one project). Use the same JSON as [Manual Claude Code Hook Configuration](#manual-claude-code-hook-configuration) below, replacing `node /path/to/agentic-insomnia/caffeine.js` with the path to your checkout. Every event it uses exists in Codex, so nothing needs removing.
 
 Project-local hooks run only when you trust the project's `.codex/` layer.
 
@@ -144,16 +141,6 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
          {
            "type": "command",
            "command": "node /path/to/agentic-insomnia/caffeine.js caffeinate"
-         }
-       ]
-     }
-   ],
-   "Notification": [
-     {
-       "hooks": [
-         {
-           "type": "command",
-           "command": "node /path/to/agentic-insomnia/caffeine.js uncaffeinate"
          }
        ]
      }
