@@ -23,7 +23,9 @@ const loadPollerWithPidFile = (pidFileContent, config = {}) => {
     getActiveSessionsWithLock: async () => [],
     cleanupExpiredSessionsWithLock: async () => {}
   });
-  mockModule('../src/config', { getConfig: () => ({ idle_timeout_minutes: 30, ...config }) });
+  mockModule('../src/config', {
+    getConfig: () => ({ server_shutdown_minutes: 30, ...config })
+  });
   mockModule('../src/backend', {
     enableCaffeine: async () => {},
     disableCaffeine: async () => {}
@@ -139,8 +141,8 @@ test('checkIdle resets the idle clock when a session is active', async () => {
   assert.strictEqual(calls.length, 0);
 });
 
-test('checkIdle never shuts down when idle_timeout_minutes is 0', async () => {
-  const { checkIdle } = loadPollerWithPidFile(undefined, { idle_timeout_minutes: 0 });
+test('checkIdle never shuts down when server_shutdown_minutes is 0', async () => {
+  const { checkIdle } = loadPollerWithPidFile(undefined, { server_shutdown_minutes: 0 });
   const { calls, callback } = recordCalls();
   const state = { idleSince: Date.now() - 24 * 60 * MINUTE };
 

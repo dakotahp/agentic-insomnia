@@ -143,10 +143,13 @@ const handleStatus = async () => {
     }
 
     console.error(
-      `\nSession timeout: ${getConfig().session_timeout_minutes} minutes of inactivity`
+      `\nStay awake after a turn: ${getConfig().stay_awake_after_turn_minutes} minutes`
     );
     console.error(
-      `Grace period: ${getConfig().grace_period_minutes} minutes after a turn ends`
+      `Stale session after: ${getConfig().stale_session_minutes} minutes of inactivity`
+    );
+    console.error(
+      `Server shutdown after: ${getConfig().server_shutdown_minutes} idle minutes`
     );
   } catch (error) {
     console.error('Error getting status:', error.message);
