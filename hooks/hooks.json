@@ -33,16 +33,6 @@
                 ]
             }
         ],
-        "Notification": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "node \"${CLAUDE_PLUGIN_ROOT}/caffeine.js\" uncaffeinate"
-                    }
-                ]
-            }
-        ],
         "Stop": [
             {
                 "hooks": [
