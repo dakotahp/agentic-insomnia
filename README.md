@@ -17,7 +17,7 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
   - [Registering the hooks by hand](#registering-the-hooks-by-hand)
 - [📋 Local Development Requirements](#-local-development-requirements)
 - [🛠 Contributing](#-contributing)
-- [🚀 Run without Claude Code](#-run-without-claude-code)
+- [🚀 Using the CLI directly](#-using-the-cli-directly)
 - [💫 Fuel the Revolution](#-fuel-the-revolution)
 - [📄 License](#-license)
 
@@ -193,32 +193,32 @@ Two things to know:
 
 See [architecture documentation](ARCHITECTURE.md) for how the pieces fit together, how the tests work, and how to add a sleep backend.
 
-## 🚀 Run without Claude Code
+## 🚀 Using the CLI directly
 
-Run from the repo directory (after `npm install`):
+The hooks do nothing but run these commands, so you can run them yourself. Use this to keep your machine awake for any long job nothing else covers: a build, a migration, a long download, or a coding agent not listed above.
+
+Run from the repo directory, after `npm install`:
 
 ```bash
-# Start server + system tray
-# (optional - will be started automatically)
+# Optional. The first caffeinate starts the server on its own.
 node caffeine.js server
 
-claude -p 'Write 10 pages of "lorem ipsum"'
+# Stay awake, under a session id you pick.
+echo '{"session_id": "my-long-job"}' | node caffeine.js caffeinate
 
+./whatever-takes-forever.sh
+
+# Release it. Your machine stays awake a few minutes more, then sleeps as usual.
+echo '{"session_id": "my-long-job"}' | node caffeine.js uncaffeinate
+```
+
+To see what is holding the lock:
+
+```bash
 node caffeine.js status
 ```
 
-Manual switch:
-
-```bash
-# Activate caffeine for your coding session
-echo '{"session_id": "session-abcd"}' | node caffeine.js caffeinate
-
-# Your session is now protected!
-# Claude can keep working while you sip coffee
-
-# When you're done (or after 15 minutes of auto-cleanup)
-echo '{"session_id": "session-abcd"}' | node caffeine.js uncaffeinate
-```
+Each `caffeinate` with the same session id refreshes it, so a script can call it in a loop. Forgetting `uncaffeinate` is safe: the session is dropped after `stale_session_minutes` and the lock is released anyway.
 
 ## 💫 Fuel the Revolution
 
