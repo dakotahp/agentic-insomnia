@@ -1,4 +1,4 @@
-# agentic-insomnia ☕⚡
+![agentic-insomnia: wide awake while your coding agents work](./assets/banner.png)
 
 _The successor to the now deprecated [samber/cc-caffeine](https://github.com/samber/cc-caffeine)._
 
