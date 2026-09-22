@@ -82,10 +82,7 @@ const addSessionWithLock = async sessionId => {
     let removedCount = 0;
 
     for (const [existingSessionId, sessionData] of Object.entries(data.sessions)) {
-      const lastActivity = new Date(sessionData.last_activity);
-      const timeDiff = nowDate - lastActivity;
-
-      if (timeDiff >= getSessionTimeout()) {
+      if (!sessionHoldsLock(sessionData, nowDate)) {
         delete data.sessions[existingSessionId];
         removedCount++;
       }
@@ -94,13 +91,14 @@ const addSessionWithLock = async sessionId => {
     // Add or update the session
     let isNewSession = false;
     if (data.sessions[sessionId]) {
-      // Update existing session's last_activity only
       data.sessions[sessionId].last_activity = now;
+      data.sessions[sessionId].ended_at = null;
     } else {
       // Create new session
       data.sessions[sessionId] = {
         created_at: now,
         last_activity: now,
+        ended_at: null,
         project_dir: process.env.CLAUDE_PROJECT_DIR
       };
       isNewSession = true;
@@ -138,18 +136,16 @@ const removeSessionWithLock = async sessionId => {
     let cleanedCount = 0;
 
     for (const [existingSessionId, sessionData] of Object.entries(data.sessions)) {
-      const lastActivity = new Date(sessionData.last_activity);
-      const timeDiff = nowDate - lastActivity;
-
-      if (timeDiff >= getSessionTimeout()) {
+      if (!sessionHoldsLock(sessionData, nowDate)) {
         delete data.sessions[existingSessionId];
         cleanedCount++;
       }
     }
 
-    // Remove the specific session if it exists
-    if (data.sessions[sessionId]) {
-      delete data.sessions[sessionId];
+    // Several hooks fire uncaffeinate for one turn. Without the ended_at guard
+    // each one would push the grace window forward and it would never close.
+    if (data.sessions[sessionId] && !data.sessions[sessionId].ended_at) {
+      data.sessions[sessionId].ended_at = now;
       changes = 1;
     }
 
@@ -183,10 +179,7 @@ const getActiveSessionsWithLock = async () => {
     const activeSessions = [];
 
     for (const [sessionId, sessionData] of Object.entries(data.sessions)) {
-      const lastActivity = new Date(sessionData.last_activity);
-      const timeDiff = now - lastActivity;
-
-      if (timeDiff < getSessionTimeout()) {
+      if (sessionHoldsLock(sessionData, now)) {
         activeSessions.push({
           id: sessionId,
           ...sessionData
@@ -214,10 +207,7 @@ const cleanupExpiredSessionsWithLock = async () => {
     let removedCount = 0;
 
     for (const [sessionId, sessionData] of Object.entries(data.sessions)) {
-      const lastActivity = new Date(sessionData.last_activity);
-      const timeDiff = now - lastActivity;
-
-      if (timeDiff >= getSessionTimeout()) {
+      if (!sessionHoldsLock(sessionData, now)) {
         delete data.sessions[sessionId];
         removedCount++;
       }

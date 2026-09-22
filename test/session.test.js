@@ -90,9 +90,9 @@ test('cleanupExpiredSessionsWithLock removes stale sessions', async () => {
   assert.strictEqual(active[0].id, 'fresh');
 });
 
-test('removeSessionWithLock removes a specific session', async () => {
-  makeTempHome();
-  const { addSessionWithLock, removeSessionWithLock, getActiveSessionsWithLock } = loadSession();
+test('removeSessionWithLock ends a specific session and leaves the others running', async () => {
+  const home = makeTempHome();
+  const { addSessionWithLock, removeSessionWithLock } = loadSession();
 
   await addSessionWithLock('sess-1');
   await addSessionWithLock('sess-2');
@@ -100,9 +100,33 @@ test('removeSessionWithLock removes a specific session', async () => {
 
   assert.strictEqual(result.changes, 1);
 
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
+  assert.ok(data.sessions['sess-1'].ended_at, 'the named session should be stamped');
+  assert.strictEqual(data.sessions['sess-2'].ended_at, null, 'others should be untouched');
+});
+
+test('an ended session stops counting as active once its grace window closes', async () => {
+  const home = makeTempHome();
+  const { getActiveSessionsWithLock } = loadSession();
+
+  writeSessions(home, {
+    'done': {
+      created_at: iso(30 * MINUTE),
+      last_activity: iso(9 * MINUTE),
+      ended_at: iso(8 * MINUTE)
+    },
+    'running': {
+      created_at: iso(30 * MINUTE),
+      last_activity: iso(1 * MINUTE),
+      ended_at: null
+    }
+  });
+
   const active = await getActiveSessionsWithLock();
-  assert.strictEqual(active.length, 1);
-  assert.strictEqual(active[0].id, 'sess-2');
+  assert.deepStrictEqual(
+    active.map(session => session.id),
+    ['running']
+  );
 });
 
 test('addSessionWithLock cleans up expired sessions on the way in', async () => {
@@ -176,4 +200,77 @@ test('sessionHoldsLock ignores the session timeout once a session has ended', ()
     sessionHoldsLock({ last_activity: iso(60 * MINUTE), ended_at: iso(1 * MINUTE) }, new Date()),
     true
   );
+});
+
+test('removeSessionWithLock stamps ended_at and keeps the session', async () => {
+  const home = makeTempHome();
+  const { addSessionWithLock, removeSessionWithLock } = loadSession();
+
+  await addSessionWithLock('grace-1');
+  await removeSessionWithLock('grace-1');
+
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
+  assert.ok(data.sessions['grace-1'], 'session should still exist');
+  assert.ok(data.sessions['grace-1'].ended_at, 'ended_at should be set');
+});
+
+test('an ended session still counts as active inside the grace window', async () => {
+  makeTempHome();
+  const { addSessionWithLock, removeSessionWithLock, getActiveSessionsWithLock } = loadSession();
+
+  await addSessionWithLock('grace-2');
+  await removeSessionWithLock('grace-2');
+
+  const active = await getActiveSessionsWithLock();
+  assert.deepStrictEqual(
+    active.map(session => session.id),
+    ['grace-2']
+  );
+});
+
+test('caffeinate clears ended_at so a new turn resumes the session', async () => {
+  const home = makeTempHome();
+  const { addSessionWithLock, removeSessionWithLock } = loadSession();
+
+  await addSessionWithLock('grace-3');
+  await removeSessionWithLock('grace-3');
+  await addSessionWithLock('grace-3');
+
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
+  assert.strictEqual(data.sessions['grace-3'].ended_at, null);
+});
+
+test('a repeated uncaffeinate does not extend the grace window', async () => {
+  const home = makeTempHome();
+  const { addSessionWithLock, removeSessionWithLock } = loadSession();
+
+  await addSessionWithLock('grace-5');
+  await removeSessionWithLock('grace-5');
+  const first = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8')).sessions['grace-5']
+    .ended_at;
+
+  await new Promise(resolve => setTimeout(resolve, 20));
+  await removeSessionWithLock('grace-5');
+  const second = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8')).sessions['grace-5']
+    .ended_at;
+
+  assert.strictEqual(second, first);
+});
+
+test('cleanupExpiredSessionsWithLock removes a session past its grace window', async () => {
+  const home = makeTempHome();
+  const { cleanupExpiredSessionsWithLock } = loadSession();
+
+  writeSessions(home, {
+    'grace-4': {
+      created_at: iso(60 * MINUTE),
+      last_activity: iso(11 * MINUTE),
+      ended_at: iso(10 * MINUTE)
+    }
+  });
+
+  await cleanupExpiredSessionsWithLock();
+
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
+  assert.strictEqual(data.sessions['grace-4'], undefined);
 });
