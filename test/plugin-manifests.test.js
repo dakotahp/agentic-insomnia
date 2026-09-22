@@ -11,9 +11,9 @@ const codexManifest = readJson('plugin.json');
 const claudeManifest = readJson('.claude-plugin/plugin.json');
 const pkg = readJson('package.json');
 
-// Events Codex does not define. Claude Code fires Notification when it wants
-// the user's attention, which is a useful release signal there; Codex has no
-// equivalent, so the shared hook file carries it for Claude Code only.
+// Events Codex does not define. The shared hook file uses none of these today;
+// the allowlist exists so that adding a Claude-only hook later is a deliberate
+// choice rather than a hook that silently never fires under Codex.
 const CLAUDE_ONLY_EVENTS = new Set(['Notification']);
 
 // Every event the shared hook file may declare, minus the Claude-only ones,

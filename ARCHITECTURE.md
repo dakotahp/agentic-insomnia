@@ -77,7 +77,6 @@ logic lives in one place.
   as an alias for its own `PLUGIN_ROOT`, so the file needs no Codex-specific version. Codex
   finds it through the root `plugin.json` (`extensions.com.openai.hooks`), which is the
   portable manifest Codex prefers over the `.claude-plugin/plugin.json` Claude Code reads.
-  Codex has no `Notification` event, so that one block applies to Claude Code only.
   `test/plugin-manifests.test.js` guards this: it fails if a hook lands on an event Codex does
   not define, unless the event is listed as Claude-only on purpose.
 
@@ -110,6 +109,9 @@ Location: `~/.claude/plugins/agentic-insomnia/sessions.json`
   it until `stay_awake_after_turn_minutes` (default 5) have passed, and the stale-session
   timeout no longer applies. Sessions that hold nothing are removed on every add, remove,
   and poll.
+- Many hooks can fire at once, so every read and write holds a
+  [proper-lockfile](https://github.com/moxystudio/node-proper-lockfile) lock. The lock is held
+  only for the read-modify-write itself.
 
 ### Why the grace period exists
 
@@ -127,9 +129,6 @@ is not used.
 The `Notification` hook is deliberately absent from `hooks/hooks.json`. It fires when Claude
 asks the user for permission, which means waiting for the user, not finished working. Calling
 `uncaffeinate` there released the lock in the middle of a turn.
-- Many hooks can fire at once, so every read and write holds a
-  [proper-lockfile](https://github.com/moxystudio/node-proper-lockfile) lock. The lock is held
-  only for the read-modify-write itself.
 
 ## Server lifecycle
 
