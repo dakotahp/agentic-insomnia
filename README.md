@@ -1,6 +1,6 @@
 ![agentic-insomnia: wide awake while your coding agents work](./assets/banner.png)
 
-## agentic-insomnia
+# agentic-insomnia
 
 Agentic tool use can make you more productive, but not when your laptop goes to sleep while running. `agentic-insomnia` keeps the Claude Code, OpenCode, and Codex coding agents awake while operating. No more cursor wiggling to manually keep your computer awake. The plugin keeps your computer from going to sleep only as long as it needs to, then your usual settings take effect.
 
