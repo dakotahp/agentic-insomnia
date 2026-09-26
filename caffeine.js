@@ -12,10 +12,10 @@ const {
   handleUsage
 } = require('./src/commands');
 const { handleServer } = require('./src/server');
-const { configDir } = require('./src/paths');
+const { stateDir } = require('./src/paths');
 
 const main = async () => {
-  fs.mkdirSync(configDir(), { recursive: true });
+  fs.mkdirSync(stateDir(), { recursive: true });
 
   const command = process.argv[2];
 

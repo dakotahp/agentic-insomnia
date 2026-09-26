@@ -12,7 +12,8 @@ const mockModule = (relativePath, exports) => {
 const loadPollerWithPidFile = (pidFileContent, config = {}) => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-insomnia-poller-'));
   os.homedir = () => home;
-  const configDir = path.join(home, '.claude', 'plugins', 'agentic-insomnia');
+  process.env.AGENTIC_INSOMNIA_DIR = path.join(home, 'data');
+  const configDir = path.join(home, 'data');
   fs.mkdirSync(configDir, { recursive: true });
 
   if (pidFileContent !== undefined) {
@@ -59,7 +60,7 @@ test('checkOwnership keeps a server when the PID file is missing', async () => {
 });
 
 const agePidFile = () => {
-  const pidFile = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia', 'server.pid');
+  const pidFile = path.join(process.env.AGENTIC_INSOMNIA_DIR, 'server.pid');
   const old = new Date(Date.now() - 60 * 60 * 1000);
   fs.utimesSync(pidFile, old, old);
   return () => fs.statSync(pidFile).mtimeMs;

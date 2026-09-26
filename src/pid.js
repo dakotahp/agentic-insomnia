@@ -3,10 +3,10 @@ const os = require('os');
 const { spawn } = require('child_process');
 const lockfile = require('proper-lockfile');
 const { windowsPowerShellPath } = require('./native');
-const { configPath } = require('./paths');
+const { statePath } = require('./paths');
 
-const pidFile = () => configPath('server.pid');
-const startupFile = () => configPath('server.starting');
+const pidFile = () => statePath('server.pid');
+const startupFile = () => statePath('server.starting');
 
 // A server only writes its PID once Electron has booted, which takes seconds.
 // Long enough to cover that window, short enough to retry a failed startup.

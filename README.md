@@ -83,22 +83,27 @@ If you would rather not use a marketplace, see [Advanced installation](#-advance
 
 ## ⚙️ Configuration (Optional)
 
-agentic-insomnia works out of the box with **zero configuration**. To change behavior, create a config file at:
+agentic-insomnia works out of the box with **zero configuration**. To change behavior, create a `config.json` in the config folder:
 
-```
-~/.claude/plugins/agentic-insomnia/config.json
-```
+| OS | Config folder | Runtime files (sessions, server PID) |
+|----|---------------|--------------------------------------|
+| MacOS, Linux | `~/.config/agentic-insomnia/` | `~/.local/state/agentic-insomnia/` |
+| Windows | `%LOCALAPPDATA%\agentic-insomnia\` | Same folder |
 
-Every coding agent shares this one location, including OpenCode and Codex. The `.claude` in the path is only a name, so you do not need Claude Code installed for it to work.
+On MacOS and Linux, `XDG_CONFIG_HOME` and `XDG_STATE_HOME` move these folders the usual way. To keep everything in one folder of your choice, set `AGENTIC_INSOMNIA_DIR`.
 
-The directory is created automatically on first run, but the file itself is not. Every setting is optional and falls back to the default below.
+Every coding agent shares these folders, including Claude Code, OpenCode, and Codex.
 
-The easiest way to start is to copy the example. The server writes a `config.example.json` beside it on every start, holding every setting at its current default, so you never have to type a setting name from memory:
+The folders are created automatically, but `config.json` is not. Every setting is optional and falls back to the default below.
+
+The server writes a `config.example.json` in the config folder on every start, holding every setting at its current default, so you never have to type a setting name from memory. Copy it to start:
 
 ```bash
-cd ~/.claude/plugins/agentic-insomnia
+cd ~/.config/agentic-insomnia
 cp config.example.json config.json
 ```
+
+**Upgrading from an older version:** older versions kept everything in `~/.claude/plugins/agentic-insomnia/`. A `config.json` there is still read while the new folder has none, and the server logs where to move it. Move it when convenient, then delete the old folder.
 
 Then edit `config.json` and keep only the settings you want to change. `config.example.json` is regenerated and is never read as configuration, so there is no need to keep it tidy.
 
@@ -146,7 +151,7 @@ Use `"electron"` to get the tray icon back on MacOS or Linux. Use `"native"` to 
 | Windows 10 and 11 | The built-in Windows PowerShell, holding a system power request | No |
 | Anything else | None | No. `"native"` logs a warning and uses Electron. |
 
-Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(head -n 1 ~/.claude/plugins/agentic-insomnia/server.pid)"`, or on Windows in PowerShell: `Stop-Process -Id (Get-Content "$HOME\.claude\plugins\agentic-insomnia\server.pid" -TotalCount 1)`. The next hook starts a new server.
+Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(head -n 1 ~/.local/state/agentic-insomnia/server.pid)"`, or on Windows in PowerShell: `Stop-Process -Id (Get-Content "$env:LOCALAPPDATA\agentic-insomnia\server.pid" -TotalCount 1)`. The next hook starts a new server.
 
 #### Linux notes
 

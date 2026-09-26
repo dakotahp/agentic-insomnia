@@ -1,9 +1,9 @@
 const fs = require('fs');
 const lockfile = require('proper-lockfile');
 const { getConfig } = require('./config');
-const { configPath } = require('./paths');
+const { statePath } = require('./paths');
 
-const sessionsFile = () => configPath('sessions.json');
+const sessionsFile = () => statePath('sessions.json');
 const getSessionTimeout = () => getConfig().stale_session_minutes * 60 * 1000;
 const getGracePeriod = () => getConfig().stay_awake_after_turn_minutes * 60 * 1000;
 const getLongToolCallLimit = () => getConfig().long_tool_call_minutes * 60 * 1000;
