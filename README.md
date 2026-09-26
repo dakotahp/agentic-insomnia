@@ -144,7 +144,7 @@ Use `"electron"` to get the tray icon back on MacOS or Linux. Use `"native"` to 
 | Windows 10 and 11 | The built-in Windows PowerShell, holding a system power request | No |
 | Anything else | None | No. `"native"` logs a warning and uses Electron. |
 
-Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(cat ~/.claude/plugins/agentic-insomnia/server.pid)"`, or on Windows in PowerShell: `Stop-Process -Id (Get-Content "$HOME\.claude\plugins\agentic-insomnia\server.pid")`. The next hook starts a new server.
+Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(head -n 1 ~/.claude/plugins/agentic-insomnia/server.pid)"`, or on Windows in PowerShell: `Stop-Process -Id (Get-Content "$HOME\.claude\plugins\agentic-insomnia\server.pid" -TotalCount 1)`. The next hook starts a new server.
 
 #### Linux notes
 
