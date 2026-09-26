@@ -185,6 +185,11 @@ tick the poller:
 5. calls `onStateChange(state)` if a UI passed one in,
 6. checks the idle timeout (see "Idle exit").
 
+If reading the session file fails, for example with a permission error, the poller leaves the
+sleep lock as it is and does not count the server as idle. Once reads have failed for
+`stale_session_minutes`, it releases the lock and starts the idle clock. By then every session
+would have expired anyway, so a broken file cannot keep the machine awake forever.
+
 `state` is a plain object that the server owns. Backends keep their handles on it, for example
 `powerSaveBlockerId` or `caffeinateProcess`.
 

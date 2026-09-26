@@ -3,12 +3,32 @@ const { enableCaffeine, disableCaffeine } = require('./backend');
 const { isPidFileOwnedByOther, writeHeartbeat } = require('./pid');
 const { getConfig } = require('./config');
 
-// A failed check counts as active, so a read error never ends a session early.
-const updateCaffeineStatus = async (state, onStateChange) => {
+// While session reads fail, the lock stays as it is. After stale_session_minutes
+// of failures every session would have expired anyway, so the lock is released.
+const readShouldCaffeinate = async state => {
   try {
     const activeSessions = await getActiveSessionsWithLock();
-    const shouldCaffeinate = activeSessions.length > 0;
+    state.readFailingSince = null;
+    return activeSessions.length > 0;
+  } catch (error) {
+    console.error('Error reading sessions:', error.message);
+    state.readFailingSince = state.readFailingSince || Date.now();
+    const limitMs = getConfig().stale_session_minutes * 60 * 1000;
+    if (Date.now() - state.readFailingSince < limitMs) {
+      return null;
+    }
+    console.error('Session reads kept failing, releasing the sleep lock');
+    return false;
+  }
+};
 
+const updateCaffeineStatus = async (state, onStateChange) => {
+  const shouldCaffeinate = await readShouldCaffeinate(state);
+  if (shouldCaffeinate === null) {
+    return true;
+  }
+
+  try {
     if (shouldCaffeinate && !state.isCaffeinated) {
       await enableCaffeine(state);
     } else if (!shouldCaffeinate && state.isCaffeinated) {
@@ -18,12 +38,11 @@ const updateCaffeineStatus = async (state, onStateChange) => {
     if (onStateChange) {
       onStateChange(state);
     }
-
-    return shouldCaffeinate;
   } catch (error) {
     console.error('Error updating caffeine status:', error);
-    return true;
   }
+
+  return shouldCaffeinate;
 };
 
 const checkIdle = async (state, hasActiveSessions, onIdle) => {
@@ -102,6 +121,7 @@ const stopPolling = state => {
 };
 
 module.exports = {
+  updateCaffeineStatus,
   checkOwnership,
   checkIdle,
   startPolling,
