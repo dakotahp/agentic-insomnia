@@ -33,7 +33,7 @@ test('getConfig returns defaults when no config file exists', () => {
   assert.strictEqual(config.stay_awake_after_turn_minutes, 5);
   assert.strictEqual(config.server_shutdown_minutes, 30);
   assert.strictEqual(config.tray_icon_theme, 'orange');
-  assert.strictEqual(config.sleep_backend, 'electron');
+  assert.strictEqual(config.sleep_backend, 'auto');
 });
 
 test('getConfig merges user config over defaults', () => {

@@ -134,6 +134,10 @@ const isAvailable = () => {
   return false;
 };
 
+// The Windows backend is new and barely tested, so auto keeps Electron there
+// until it has been used on real machines.
+const isAutoChoice = () => deps.platform !== 'win32' && isAvailable();
+
 const recordFailure = (state, reason) => {
   if (state.nativeFailure) {
     return;
@@ -245,6 +249,7 @@ module.exports = {
   enableCaffeine,
   disableCaffeine,
   isAvailable,
+  isAutoChoice,
   resolveNativeCommand,
   setDependencies,
   windowsPowerShellPath,

@@ -6,12 +6,13 @@ const loadBackend = () => {
   return require('../src/backend');
 };
 
-const loadBoth = ({ available = true } = {}) => {
+const loadBoth = ({ available = true, platform = 'darwin' } = {}) => {
   delete require.cache[require.resolve('../src/backend')];
   delete require.cache[require.resolve('../src/native')];
   const native = require('../src/native');
   native.setDependencies({
-    platform: 'darwin',
+    platform,
+    fileExists: () => available,
     commandExists: () => available,
     isSystemdBooted: () => true
   });
@@ -79,6 +80,38 @@ test('getSleepBackend returns electron when configured for electron', () => {
   const { backend } = loadBoth({ available: true });
 
   assert.strictEqual(backend.getSleepBackend(), 'electron');
+});
+
+for (const platform of ['darwin', 'linux']) {
+  test(`getSleepBackend auto picks native on ${platform} when it is available`, () => {
+    mockConfig('auto');
+    const { backend } = loadBoth({ available: true, platform });
+
+    assert.strictEqual(backend.getSleepBackend(), 'native');
+  });
+}
+
+test('getSleepBackend auto picks electron on Windows even when native is available', () => {
+  mockConfig('auto');
+  const { backend } = loadBoth({ available: true, platform: 'win32' });
+
+  assert.strictEqual(backend.getSleepBackend(), 'electron');
+});
+
+test('getSleepBackend auto falls back to electron without a warning', t => {
+  const errors = t.mock.method(console, 'error', () => {});
+  mockConfig('auto');
+  const { backend } = loadBoth({ available: false });
+
+  assert.strictEqual(backend.getSleepBackend(), 'electron');
+  assert.strictEqual(errors.mock.callCount(), 0);
+});
+
+test('getSleepBackend explicit native still works on Windows', () => {
+  mockConfig('native');
+  const { backend } = loadBoth({ available: true, platform: 'win32' });
+
+  assert.strictEqual(backend.getSleepBackend(), 'native');
 });
 
 test('enableCaffeine dispatches to the native backend when configured', () => {

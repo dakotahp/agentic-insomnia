@@ -11,14 +11,20 @@ const getSleepBackend = () => {
     return resolvedBackend;
   }
 
-  if (getConfig().sleep_backend !== 'native') {
-    resolvedBackend = 'electron';
-  } else if (native.isAvailable()) {
+  const configured = getConfig().sleep_backend;
+
+  if (configured === 'native') {
+    if (native.isAvailable()) {
+      resolvedBackend = 'native';
+    } else {
+      console.error(
+        'Warning: sleep_backend "native" is not available on this system, using "electron"'
+      );
+      resolvedBackend = 'electron';
+    }
+  } else if (configured === 'auto' && native.isAutoChoice()) {
     resolvedBackend = 'native';
   } else {
-    console.error(
-      'Warning: sleep_backend "native" is not available on this system, using "electron"'
-    );
     resolvedBackend = 'electron';
   }
 

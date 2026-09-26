@@ -222,7 +222,7 @@ The poller and the tray used to import each other. Two small injections break th
 
 | Backend | Config value | How it prevents sleep | Server process | Tray |
 |---------|--------------|-----------------------|----------------|------|
-| Electron | `"electron"` (default) | `powerSaveBlocker.start('prevent-app-suspension')` | Electron | Yes |
+| Electron | `"electron"` | `powerSaveBlocker.start('prevent-app-suspension')` | Electron | Yes |
 | Native, macOS | `"native"` | child process `caffeinate -i` | Node | No |
 | Native, Linux | `"native"` | child process `systemd-inhibit ... cat` | Node | No |
 | Native, Windows | `"native"` | child process `powershell.exe` holding a power request | Node | No |
@@ -231,9 +231,12 @@ The poller and the tray used to import each other. Two small injections break th
 
 `getSleepBackend()` in `backend.js` makes the choice once per process and caches it:
 
-- Config is not `"native"`: use `electron`.
-- Config is `"native"` and `native.isAvailable()` is true: use `native`.
-- Otherwise: log a warning and use `electron`.
+- Config is `"native"`: use `native` if `native.isAvailable()` is true. Otherwise log a warning
+  and use `electron`.
+- Config is `"auto"` (the default): use `native` if `native.isAutoChoice()` is true, and
+  `electron` otherwise, with no warning. `isAutoChoice()` is `isAvailable()` on every platform
+  except Windows, where it is false because that backend has seen little real use.
+- Any other value, including `"electron"`: use `electron`.
 
 `isAvailable()` looks for `caffeinate` on `PATH` on macOS. On Linux it needs both
 `/run/systemd/system` (the machine booted with systemd) and `systemd-inhibit` on `PATH`. On
