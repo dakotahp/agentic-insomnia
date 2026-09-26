@@ -2,6 +2,13 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const loadBackend = () => {
+  const configPath = require.resolve('../src/config');
+  require.cache[configPath] = {
+    id: configPath,
+    filename: configPath,
+    loaded: true,
+    exports: { getConfig: () => ({ sleep_backend: 'electron' }) }
+  };
   delete require.cache[require.resolve('../src/backend')];
   return require('../src/backend');
 };

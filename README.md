@@ -12,7 +12,7 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
   - [OpenCode Installation](#opencode-installation)
   - [Codex Installation](#codex-installation)
 - [⚙️ Configuration (Optional)](#-configuration-optional)
-  - [Switching to the native backend](#switching-to-the-native-backend)
+  - [Choosing a sleep backend](#choosing-a-sleep-backend)
 - [🔧 Advanced Installation](#-advanced-installation)
   - [Registering the hooks by hand](#registering-the-hooks-by-hand)
 - [📋 Local Development Requirements](#-local-development-requirements)
@@ -25,9 +25,9 @@ Agentic tool use can make you more productive, but not when your laptop goes to 
 ## Features
 
 - Cross-platform support for MacOS, Linux, and Windows.
-  - On MacOS, Linux, and Windows it can use the OS's own sleep tool to stay awake, without Electron (when configured).
+  - On MacOS and Linux it uses the OS's own sleep tool by default, with no Electron. Windows uses Electron by default.
 - Supports Claude Code, OpenCode, and Codex.
-- Adds cross-platform menu bar tray indicator:
+- Optional menu bar tray indicator, with the Electron backend:
 
 ​	![](./assets/icon-coffee-empty.png) Agent is idle
 
@@ -83,8 +83,7 @@ If you would rather not use a marketplace, see [Advanced installation](#-advance
 
 ## ⚙️ Configuration (Optional)
 
-agentic-insomnia works out of the box with **zero configuration** — the default
-Electron backend needs nothing. To change behavior, create a config file at:
+agentic-insomnia works out of the box with **zero configuration**. To change behavior, create a config file at:
 
 ```
 ~/.claude/plugins/agentic-insomnia/config.json
@@ -109,7 +108,7 @@ Then edit `config.json` and keep only the settings you want to change. `config.e
   "stale_session_minutes": 15,
   "server_shutdown_minutes": 30,
   "tray_icon_theme": "orange",
-  "sleep_backend": "electron"
+  "sleep_backend": "auto"
 }
 ```
 
@@ -119,28 +118,33 @@ Then edit `config.json` and keep only the settings you want to change. `config.e
 | `stale_session_minutes` | `15` | Minutes before a session that never ended cleanly is forgotten. This is a fallback for a session whose `Stop` hook never fired, so you rarely need to change it |
 | `server_shutdown_minutes` | `30` | Minutes with no active session before the background server exits and removes itself. The next hook starts it again. Applies to both sleep backends. `0` disables this |
 | `tray_icon_theme` | `"orange"` | Tray icon theme for the Electron backend: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
-| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS sleep tool: `caffeinate` on MacOS, `systemd-inhibit` on Linux, a PowerShell power request on Windows; no Electron, no tray) |
+| `sleep_backend` | `"auto"` | Sleep-prevention mechanism: `"auto"`, `"native"` (the OS sleep tool, no tray), or `"electron"` (powerSaveBlocker and a tray icon). See [Choosing a sleep backend](#choosing-a-sleep-backend) |
 
-### Switching to the native backend
+### Choosing a sleep backend
 
-Set `sleep_backend` to `"native"` to prevent sleep with your operating system's own tool instead of Electron. The server then runs as a plain Node process with no system tray, so Electron is not needed to keep the system awake.
+There are two ways to keep your machine awake:
+
+- **Native** uses your operating system's own tool. The server is a small Node process, and there is no tray icon.
+- **Electron** uses Electron's power blocker and shows a tray icon. Electron downloads about 100 MB the first time it starts, and its background process uses more memory.
+
+The default, `"auto"`, picks native on MacOS and on Linux with systemd, and Electron everywhere else. Windows uses Electron under `"auto"` because its native backend is new and not yet tested on many machines. Set `sleep_backend` to choose one yourself:
 
 ```json
 {
-  "sleep_backend": "native"
+  "sleep_backend": "electron"
 }
 ```
 
-| OS | Tool used |
-|----|-----------|
-| MacOS | `caffeinate -i` |
-| Linux (systemd) | `systemd-inhibit --what=sleep:idle --mode=block` |
-| Windows 10 and 11 | The built-in Windows PowerShell, holding a system power request |
-| Anything else | None. agentic-insomnia logs a warning and uses the Electron backend. |
+Use `"electron"` to get the tray icon back on MacOS or Linux. Use `"native"` to try the native backend on Windows.
+
+| OS | Native tool | Used by `"auto"` |
+|----|-------------|------------------|
+| MacOS | `caffeinate -i` | Yes |
+| Linux (systemd) | `systemd-inhibit --what=sleep:idle --mode=block` | Yes |
+| Windows 10 and 11 | The built-in Windows PowerShell, holding a system power request | No |
+| Anything else | None | No. `"native"` logs a warning and uses Electron. |
 
 Run `node caffeine.js status` to see which backend is in use. The server reads the config when it starts, so restart it after a change: `kill "$(cat ~/.claude/plugins/agentic-insomnia/server.pid)"`, or on Windows in PowerShell: `Stop-Process -Id (Get-Content "$HOME\.claude\plugins\agentic-insomnia\server.pid")`. The next hook starts a new server.
-
-The Electron backend remains the cross-platform default.
 
 #### Linux notes
 
@@ -153,7 +157,7 @@ Linux is supported and works by holding a standard systemd lock (`systemd-inhibi
 
 #### Windows notes
 
-Windows has no command like `caffeinate`, so agentic-insomnia starts the Windows PowerShell that comes with Windows 10 and 11. PowerShell holds a system power request, the same kind Electron uses. Windows support is new and not yet tested on many machines.
+Windows has no command like `caffeinate`, so agentic-insomnia starts the Windows PowerShell that comes with Windows 10 and 11. PowerShell holds a system power request, the same kind Electron uses. Windows support is new and not yet tested on many machines, so it is used only when you set `"sleep_backend": "native"`.
 
 - While a session is active, `powercfg /requests` (in an administrator terminal) lists `agentic-insomnia: coding agent session active`.
 - The request is released when sessions go idle, when the server stops, and also when the server crashes.
@@ -186,7 +190,7 @@ Two things to know:
 ## 📋 Local Development Requirements
 
 - Node.js >= 22.12.0 (your coffee of choice; `.node-version` pins the one CI uses)
-- Electron (included automatically, like sugar in your espresso)
+- Electron, for the Electron backend (installed with the package, and downloads its binary on first use, like sugar in your espresso)
 
 ## 🛠 Contributing
 
