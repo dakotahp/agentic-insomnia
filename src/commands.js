@@ -164,13 +164,14 @@ const handleUsage = () => {
   console.error('Usage: node caffeine.js [caffeinate|uncaffeinate|server|status|version]');
   console.error('');
   console.error('Commands:');
-  console.error('  caffeinate [session_id]   - Enable caffeine for current session');
-  console.error('  uncaffeinate [session_id] - Disable caffeine for current session');
-  console.error('  server                    - Start caffeine server with system tray');
-  console.error('  status                    - Show current status and active sessions');
-  console.error(
-    '  version                   - Show version information from package.json and plugin.json'
-  );
+  console.error('  caffeinate     - Keep the machine awake for a session');
+  console.error('  uncaffeinate   - End a session; sleep is allowed after the grace period');
+  console.error('  server         - Start the caffeine server');
+  console.error('  status         - Show current status and active sessions');
+  console.error('  version        - Show version information from package.json and plugin.json');
+  console.error('');
+  console.error('caffeinate and uncaffeinate read the session id as JSON on stdin:');
+  console.error('  echo \'{"session_id": "my-job"}\' | node caffeine.js caffeinate');
   process.exit(1);
 };
 

@@ -23,7 +23,6 @@
  * (see `testSpawnFn` below and test/opencode.test.js).
  */
 
-import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -93,28 +92,17 @@ const extractSessionId = (event, input) => {
   return null;
 };
 
-/**
- * Resolve the CLI to invoke. When the plugin ships inside the repo, the sibling
- * caffeine.js is used; when installed from npm, the `agentic-insomnia` bin.
- */
-const resolveCli = () => {
-  const local = path.join(__dirname, '..', 'caffeine.js');
-  if (fs.existsSync(local)) {
-    return { cmd: 'node', args: [local] };
-  }
-  return { cmd: 'npx', args: ['agentic-insomnia'] };
-};
+const CLI_PATH = path.join(__dirname, '..', 'caffeine.js');
 
 /**
  * Run a CLI action, piping `{ session_id }` on stdin (the Claude Code hook
  * format). Resolves on close or error so a failed spawn never rejects a hook.
  */
-const run = (action, sessionId, cli) =>
+const run = (action, sessionId) =>
   new Promise(resolve => {
     let child;
     try {
-      const resolved = cli || resolveCli();
-      child = spawnFn(resolved.cmd, [...resolved.args, action], {
+      child = spawnFn('node', [CLI_PATH, action], {
         stdio: ['pipe', 'ignore', 'ignore']
       });
     } catch {

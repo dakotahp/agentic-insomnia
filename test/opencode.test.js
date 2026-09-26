@@ -1,5 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const path = require('node:path');
 
 // The plugin is an ESM module (OpenCode's loader requires it), so load it via
 // dynamic import. A unique query string per call gives a fresh module
@@ -21,6 +22,7 @@ const loadOpencode = async () => {
 const makeFakeChild = () => {
   let stdin = '';
   let args = null;
+  let command = null;
   const child = {
     stdin: {
       write: chunk => {
@@ -41,10 +43,13 @@ const makeFakeChild = () => {
   };
   return {
     testSpawnFn: (cmd, spawnArgs) => {
+      command = cmd;
       args = spawnArgs;
       return child;
     },
     getStdin: () => stdin,
+    getCommand: () => command,
+    getArgs: () => args,
     getAction: () => args && args[args.length - 1]
   };
 };
@@ -70,6 +75,19 @@ test('event hook caffeinates on session.created with the session id', async () =
 
   assert.strictEqual(fake.getAction(), 'caffeinate');
   assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-1' });
+});
+
+test('runs the caffeine.js next to the plugin with node', async () => {
+  const fake = makeFakeChild();
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
+
+  await hooks['tool.execute.before']({ sessionID: 'sess-cli' });
+
+  assert.strictEqual(fake.getCommand(), 'node');
+  assert.deepStrictEqual(fake.getArgs(), [
+    path.join(__dirname, '..', 'caffeine.js'),
+    'caffeinate'
+  ]);
 });
 
 test('event hook caffeinates on command.executed with the session id', async () => {
