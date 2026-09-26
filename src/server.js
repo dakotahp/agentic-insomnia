@@ -22,6 +22,24 @@ const { getSleepBackend } = require('./backend');
 const { writeExampleConfig } = require('./config');
 
 const CHECK_INTERVAL = 5 * 1000;
+const APP_DIR = path.join(__dirname, '..');
+const CAFFEINE_JS = path.join(APP_DIR, 'caffeine.js');
+
+// Electron downloads its binary the first time anything asks for its path.
+// Its cli.js does that in the spawned process, so a hook never waits for it.
+const serverCommand = () => ({
+  cmd: process.execPath,
+  args:
+    getSleepBackend() === 'native'
+      ? [CAFFEINE_JS, 'server']
+      : [require.resolve('electron/cli.js'), CAFFEINE_JS, 'server']
+});
+
+const serverEnv = () => {
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+};
 
 const runServerProcessIfNotStarted = async () => {
   let mustStart = false;
@@ -55,38 +73,24 @@ const runServerProcessIfNotStarted = async () => {
 
   if (mustStart) {
     console.error('Server not running, starting...');
-    await startServerProcess();
+    startServerProcess();
   }
 };
 
-const serverSpawnOptions = platform => ({
-  detached: true,
-  stdio: 'ignore',
-  // On Windows npm is npm.cmd, which Node only runs through a shell. The
-  // arguments are fixed strings, so the shell cannot inject anything.
-  shell: platform === 'win32',
-  windowsHide: true
-});
-
-const startServerProcess = async () => {
-  console.error('Starting caffeine server...');
-
-  const cwd = path.join(__dirname, '..');
-
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE;
-
-  const script = getSleepBackend() === 'native' ? 'native-server' : 'server';
-
-  const serverProcess = spawn('npm', ['run', script], {
-    ...serverSpawnOptions(process.platform),
-    cwd,
-    env
+const startServerProcess = () => {
+  const { cmd, args } = serverCommand();
+  const serverProcess = spawn(cmd, args, {
+    cwd: APP_DIR,
+    env: serverEnv(),
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true
   });
 
+  serverProcess.on('error', error => {
+    console.error('Failed to start the caffeine server:', error.message);
+  });
   serverProcess.unref();
-
-  await new Promise(resolve => setTimeout(resolve, 500));
 };
 
 const handleServer = async () => {
@@ -170,29 +174,15 @@ const startServer = async () => {
 };
 
 const spawnElectronProcess = () => {
-  const cwd = path.join(__dirname, '..');
-
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE;
-
-  const electronProcess = spawn('npx', ['electron', 'caffeine.js', 'server'], {
-    stdio: 'inherit',
-    shell: true,
-    detached: false,
-    cwd,
-    env
-  });
-
-  electronProcess.on('exit', code => {
-    process.exit(code || 0);
-  });
+  const { cmd, args } = serverCommand();
+  const electronProcess = spawn(cmd, args, { cwd: APP_DIR, env: serverEnv(), stdio: 'inherit' });
 
   electronProcess.on('error', error => {
     console.error('Failed to spawn Electron process:', error);
     process.exit(1);
   });
 
-  electronProcess.on('close', code => {
+  electronProcess.on('exit', code => {
     process.exit(code || 0);
   });
 };
@@ -200,5 +190,5 @@ const spawnElectronProcess = () => {
 module.exports = {
   handleServer,
   runServerProcessIfNotStarted,
-  serverSpawnOptions
+  serverCommand
 };

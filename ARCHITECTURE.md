@@ -151,8 +151,11 @@ guarded so only one of them starts a server:
    `server.starting` marker (30 second grace period).
 2. If neither exists, it writes the marker and releases the lock. Other clients now see the
    marker and back off.
-3. It spawns the server detached: `npm run server` (Electron) or `npm run native-server`
-   (plain Node), based on the resolved backend.
+3. It spawns the server detached, with the Node binary that runs the client: `caffeine.js
+   server` for the native backend, or Electron's `cli.js` with `caffeine.js server` for the
+   Electron backend. No npm, npx, or shell is involved. Electron downloads its binary the first
+   time anything asks for its path, so the client never asks. `cli.js` does it inside the
+   spawned process, and the hook does not wait.
 4. The server takes the same lock and writes its own PID.
 
 "Is a server running?" means more than "the PID is alive", because a PID can be reused by an
