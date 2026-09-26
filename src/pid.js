@@ -46,8 +46,19 @@ const withPidLock = async fn => {
   }
 };
 
-const writePidFile = async pid => {
-  await fs.promises.writeFile(pidFile(), pid.toString(), 'utf8');
+// The PID comes first, so readers that parse only a leading number still work.
+const writePidFile = async (pid, backend) => {
+  const content = backend ? `${pid}\n${backend}` : pid.toString();
+  await fs.promises.writeFile(pidFile(), content, 'utf8');
+};
+
+const readServerBackend = async () => {
+  try {
+    const [, backend] = (await fs.promises.readFile(pidFile(), 'utf8')).split(/\r?\n/);
+    return backend ? backend.trim() : null;
+  } catch {
+    return null;
+  }
 };
 
 const writeHeartbeat = async () => {
@@ -242,6 +253,7 @@ const isPidFileOwnedByOther = async ownPid => {
 module.exports = {
   writePidFile,
   readPidFile,
+  readServerBackend,
   removePidFileWithLock,
   removePidFile,
   isPidFileOwnedByOther,

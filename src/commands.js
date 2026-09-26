@@ -3,7 +3,7 @@ const {
   removeSessionWithLock,
   getActiveSessionsWithLock
 } = require('./session');
-const { isServerRunningWithLock } = require('./pid');
+const { isServerRunningWithLock, readServerBackend } = require('./pid');
 const { runServerProcessIfNotStarted } = require('./server');
 const { getConfig } = require('./config');
 const { getSleepBackend } = require('./backend');
@@ -69,6 +69,13 @@ const handleVersion = () => {
   console.log(version);
 };
 
+const backendStatus = (running, configured) => {
+  if (!running || running === configured) {
+    return configured;
+  }
+  return `${running} (${configured} after the server restarts)`;
+};
+
 const handleStatus = async () => {
   try {
     const serverRunning = await isServerRunningWithLock();
@@ -76,7 +83,8 @@ const handleStatus = async () => {
 
     console.error('=== Agentic Insomnia Status ===');
     console.error(`Server Status: ${serverRunning ? '✅ Running' : '❌ Stopped'}`);
-    console.error(`Sleep Backend: ${getSleepBackend()}`);
+    const running = serverRunning ? await readServerBackend() : null;
+    console.error(`Sleep Backend: ${backendStatus(running, getSleepBackend())}`);
     console.error(`Active Sessions: ${activeSessions.length}`);
 
     if (activeSessions.length > 0) {
@@ -134,6 +142,7 @@ const handleUsage = () => {
 };
 
 module.exports = {
+  backendStatus,
   handleCaffeinate,
   handleToolStart,
   handleToolEnd,

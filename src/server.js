@@ -106,7 +106,7 @@ const handleServer = async () => {
 
     if (isRunningInElectron() || getSleepBackend() === 'native') {
       mustStartHere = true;
-      await writePidFile(process.pid);
+      await writePidFile(process.pid, getSleepBackend());
     } else {
       mustSpawnElectron = true;
       console.error('Not running inside Electron, spawning Electron process...');
