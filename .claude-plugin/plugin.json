@@ -1,7 +1,7 @@
 {
     "name": "agentic-insomnia",
     "description": "Prevents your laptop from sleeping while the coding agent is working.",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "author": {
         "name": "Dakotah Peña",
         "email": "git@dakotahpena.dev"
