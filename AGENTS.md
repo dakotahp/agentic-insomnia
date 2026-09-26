@@ -53,8 +53,9 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
   timer.
 - The Windows PowerShell script must not contain double quotes or use `Add-Type`. See
   `ARCHITECTURE.md`.
-- On Windows, `validatePid` trusts a fresh `server.heartbeat` instead of starting PowerShell.
-  Servers must keep refreshing it on every poll.
+- `validatePid` trusts a live PID whose `server.pid` was modified in the last 30 seconds, and
+  otherwise falls back to spawning `ps` or PowerShell. Servers must keep refreshing that
+  modified time on every poll, and must never rewrite the file to do it.
 - Config is cached per process. Restart the server after config changes.
 - The background server discards its logs. Debug with a foreground server.
 - `opencode/agentic-insomnia.mjs` stays one file with only a default export.

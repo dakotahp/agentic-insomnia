@@ -70,13 +70,18 @@ const whenReady = () => {
   return app.whenReady();
 };
 
-const quit = () => {
+// Electron turns SIGINT and SIGTERM into an app quit and never calls Node's
+// signal listeners, so the server cleans up on will-quit instead.
+const onAppQuit = handler => {
   const { app } = getElectron();
-  if (app && typeof app.quit === 'function') {
-    app.quit();
-  } else {
-    process.exit(0);
-  }
+  app.once('will-quit', event => {
+    event.preventDefault();
+    handler();
+  });
+};
+
+const exitApp = () => {
+  getElectron().app.exit(0);
 };
 
 module.exports = {
@@ -85,5 +90,6 @@ module.exports = {
   preventWindowCreation,
   setupAppEventHandlers,
   whenReady,
-  quit
+  onAppQuit,
+  exitApp
 };

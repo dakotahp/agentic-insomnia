@@ -68,7 +68,7 @@ test('getActiveSessionsWithLock returns only non-expired sessions', async () => 
   assert.strictEqual(active[0].id, 'fresh');
 });
 
-test('cleanupExpiredSessionsWithLock removes stale sessions', async () => {
+test('getActiveSessionsWithLock removes stale sessions from the file', async () => {
   const home = makeTempHome();
   const now = Date.now();
   writeSessions(home, {
@@ -79,15 +79,12 @@ test('cleanupExpiredSessionsWithLock removes stale sessions', async () => {
     }
   });
 
-  const { cleanupExpiredSessionsWithLock } = loadSession();
-  const result = await cleanupExpiredSessionsWithLock();
-
-  assert.strictEqual(result.changes, 1);
-
   const { getActiveSessionsWithLock } = loadSession();
   const active = await getActiveSessionsWithLock();
-  assert.strictEqual(active.length, 1);
-  assert.strictEqual(active[0].id, 'fresh');
+
+  assert.deepStrictEqual(active.map(session => session.id), ['fresh']);
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
+  assert.deepStrictEqual(Object.keys(data.sessions), ['fresh']);
 });
 
 test('removeSessionWithLock ends a specific session and leaves the others running', async () => {
@@ -256,9 +253,9 @@ test('a repeated uncaffeinate does not extend the grace window', async () => {
   assert.strictEqual(second, first);
 });
 
-test('cleanupExpiredSessionsWithLock removes a session past its grace window', async () => {
+test('getActiveSessionsWithLock removes a session past its grace window', async () => {
   const home = makeTempHome();
-  const { cleanupExpiredSessionsWithLock } = loadSession();
+  const { getActiveSessionsWithLock } = loadSession();
 
   writeSessions(home, {
     'grace-4': {
@@ -268,7 +265,7 @@ test('cleanupExpiredSessionsWithLock removes a session past its grace window', a
     }
   });
 
-  await cleanupExpiredSessionsWithLock();
+  await getActiveSessionsWithLock();
 
   const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
   assert.strictEqual(data.sessions['grace-4'], undefined);
@@ -324,4 +321,26 @@ test('initSessionsFile keeps an existing file', async () => {
 
   const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
   assert.deepStrictEqual(Object.keys(data.sessions), ['kept']);
+});
+
+test('reading active sessions leaves the file untouched when nothing expired', async () => {
+  const home = makeTempHome();
+  writeSessions(home, { fresh: { created_at: iso(0), last_activity: iso(0) } });
+  const before = fs.readFileSync(sessionsFile(home), 'utf8');
+  const { getActiveSessionsWithLock } = loadSession();
+
+  await getActiveSessionsWithLock();
+
+  assert.strictEqual(fs.readFileSync(sessionsFile(home), 'utf8'), before);
+});
+
+test('a repeated uncaffeinate reports no change', async () => {
+  makeTempHome();
+  const { addSessionWithLock, removeSessionWithLock } = loadSession();
+
+  await addSessionWithLock('sess-1');
+  await removeSessionWithLock('sess-1');
+  const result = await removeSessionWithLock('sess-1');
+
+  assert.strictEqual(result.changes, 0);
 });

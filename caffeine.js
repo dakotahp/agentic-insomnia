@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-const path = require('path');
-const os = require('os');
 const fs = require('fs');
 
 const {
@@ -12,11 +10,10 @@ const {
   handleUsage
 } = require('./src/commands');
 const { handleServer } = require('./src/server');
-
-const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
+const { configDir } = require('./src/paths');
 
 const main = async () => {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs.mkdirSync(configDir(), { recursive: true });
 
   const command = process.argv[2];
 

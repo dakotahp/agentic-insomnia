@@ -2,14 +2,15 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const { initSessionsFile } = require('./session');
-const { getSystemTray, updateTrayIcon, shutdownServer } = require('./system-tray');
+const { createSystemTray, updateTrayIcon, shutdownServer } = require('./system-tray');
 const { startPolling } = require('./poller');
 const {
   isRunningInElectron,
   preventWindowCreation,
   setupAppEventHandlers,
   whenReady,
-  quit
+  onAppQuit,
+  exitApp
 } = require('./electron');
 const {
   isServerRunning,
@@ -22,6 +23,24 @@ const { getSleepBackend } = require('./backend');
 const { writeExampleConfig } = require('./config');
 
 const CHECK_INTERVAL = 5 * 1000;
+const APP_DIR = path.join(__dirname, '..');
+const CAFFEINE_JS = path.join(APP_DIR, 'caffeine.js');
+
+// Electron downloads its binary the first time anything asks for its path.
+// Its cli.js does that in the spawned process, so a hook never waits for it.
+const serverCommand = () => ({
+  cmd: process.execPath,
+  args:
+    getSleepBackend() === 'native'
+      ? [CAFFEINE_JS, 'server']
+      : [require.resolve('electron/cli.js'), CAFFEINE_JS, 'server']
+});
+
+const serverEnv = () => {
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+};
 
 const runServerProcessIfNotStarted = async () => {
   let mustStart = false;
@@ -55,38 +74,24 @@ const runServerProcessIfNotStarted = async () => {
 
   if (mustStart) {
     console.error('Server not running, starting...');
-    await startServerProcess();
+    startServerProcess();
   }
 };
 
-const serverSpawnOptions = platform => ({
-  detached: true,
-  stdio: 'ignore',
-  // On Windows npm is npm.cmd, which Node only runs through a shell. The
-  // arguments are fixed strings, so the shell cannot inject anything.
-  shell: platform === 'win32',
-  windowsHide: true
-});
-
-const startServerProcess = async () => {
-  console.error('Starting caffeine server...');
-
-  const cwd = path.join(__dirname, '..');
-
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE;
-
-  const script = getSleepBackend() === 'native' ? 'native-server' : 'server';
-
-  const serverProcess = spawn('npm', ['run', script], {
-    ...serverSpawnOptions(process.platform),
-    cwd,
-    env
+const startServerProcess = () => {
+  const { cmd, args } = serverCommand();
+  const serverProcess = spawn(cmd, args, {
+    cwd: APP_DIR,
+    env: serverEnv(),
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true
   });
 
+  serverProcess.on('error', error => {
+    console.error('Failed to start the caffeine server:', error.message);
+  });
   serverProcess.unref();
-
-  await new Promise(resolve => setTimeout(resolve, 500));
 };
 
 const handleServer = async () => {
@@ -117,124 +122,69 @@ const handleServer = async () => {
   }
 };
 
-const shutDownWhenSuperseded = exit => async state => {
-  await shutdownServer(state);
-  exit();
+const createState = () => ({
+  isCaffeinated: false,
+  powerSaveBlockerId: null,
+  caffeinateProcess: null,
+  tray: null
+});
+
+const runServer = async (state, onStateChange, exit) => {
+  await initSessionsFile();
+
+  const shutDown = async () => {
+    await shutdownServer(state);
+    exit();
+  };
+
+  startPolling(state, CHECK_INTERVAL, onStateChange, shutDown, shutDown);
+  process.on('SIGINT', shutDown);
+  process.on('SIGTERM', shutDown);
+  return shutDown;
 };
 
 const startServer = async () => {
   writeExampleConfig();
-
-  if (getSleepBackend() === 'native') {
-    return startNativeServer();
-  }
-
-  console.error('Loading Electron...');
-
-  preventWindowCreation();
-
-  setupAppEventHandlers();
-
-  await whenReady();
+  const state = createState();
 
   try {
-    await initSessionsFile();
-
-    // The system tray is UI only. When Electron is unavailable it may fail;
-    // the server still runs headless.
-    let state;
-    let onStateChange;
-    try {
-      state = getSystemTray();
-      onStateChange = updateTrayIcon;
-      console.error('Caffeine server started successfully with system tray');
-    } catch (trayError) {
-      console.error('System tray unavailable, running headless:', trayError.message);
-      state = { isCaffeinated: false, powerSaveBlockerId: null, caffeinateProcess: null };
-      onStateChange = undefined;
+    if (getSleepBackend() === 'native') {
+      await runServer(state, undefined, () => process.exit(0));
+      console.error('Native caffeine server started');
+      return;
     }
 
-    const shutDown = shutDownWhenSuperseded(quit);
-    startPolling(state, CHECK_INTERVAL, onStateChange, shutDown, shutDown);
+    preventWindowCreation();
+    setupAppEventHandlers();
+    await whenReady();
 
-    process.on('SIGINT', async () => {
-      console.error('Received SIGINT, shutting down server...');
-      await shutdownServer(state);
-      quit();
-    });
+    // The tray is UI only, so the server still runs headless without it.
+    let onStateChange;
+    try {
+      createSystemTray(state);
+      onStateChange = updateTrayIcon;
+    } catch (trayError) {
+      console.error('System tray unavailable, running headless:', trayError.message);
+    }
 
-    process.on('SIGTERM', async () => {
-      console.error('Received SIGTERM, shutting down server...');
-      await shutdownServer(state);
-      quit();
-    });
-
-    return state;
+    onAppQuit(await runServer(state, onStateChange, exitApp));
+    console.error('Electron caffeine server started');
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
   }
 };
 
-const startNativeServer = async () => {
-  console.error('Starting native caffeine server...');
-
-  try {
-    await initSessionsFile();
-
-    const state = {
-      isCaffeinated: false,
-      powerSaveBlockerId: null,
-      caffeinateProcess: null
-    };
-
-    const shutDown = shutDownWhenSuperseded(() => process.exit(0));
-    startPolling(state, CHECK_INTERVAL, undefined, shutDown, shutDown);
-
-    process.on('SIGINT', async () => {
-      console.error('Received SIGINT, shutting down server...');
-      await shutdownServer(state);
-      process.exit(0);
-    });
-
-    process.on('SIGTERM', async () => {
-      console.error('Received SIGTERM, shutting down server...');
-      await shutdownServer(state);
-      process.exit(0);
-    });
-
-    console.error('Native caffeine server started successfully');
-    return state;
-  } catch (error) {
-    console.error('Failed to start native server:', error);
-    process.exit(1);
-  }
-};
-
 const spawnElectronProcess = () => {
-  const cwd = path.join(__dirname, '..');
-
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE;
-
-  const electronProcess = spawn('npx', ['electron', 'caffeine.js', 'server'], {
-    stdio: 'inherit',
-    shell: true,
-    detached: false,
-    cwd,
-    env
-  });
-
-  electronProcess.on('exit', code => {
-    process.exit(code || 0);
-  });
+  const { cmd, args } = serverCommand();
+  const electronProcess = spawn(cmd, args, { cwd: APP_DIR, env: serverEnv(), stdio: 'inherit' });
 
   electronProcess.on('error', error => {
     console.error('Failed to spawn Electron process:', error);
     process.exit(1);
   });
 
-  electronProcess.on('close', code => {
+  electronProcess.on('exit', code => {
     process.exit(code || 0);
   });
 };
@@ -242,5 +192,5 @@ const spawnElectronProcess = () => {
 module.exports = {
   handleServer,
   runServerProcessIfNotStarted,
-  serverSpawnOptions
+  serverCommand
 };

@@ -20,8 +20,7 @@ const loadPollerWithPidFile = (pidFileContent, config = {}) => {
   }
 
   mockModule('../src/session', {
-    getActiveSessionsWithLock: async () => [],
-    cleanupExpiredSessionsWithLock: async () => {}
+    getActiveSessionsWithLock: async () => []
   });
   mockModule('../src/config', {
     getConfig: () => ({ server_shutdown_minutes: 30, ...config })
@@ -59,15 +58,22 @@ test('checkOwnership keeps a server when the PID file is missing', async () => {
   assert.strictEqual(calls.length, 0);
 });
 
-test('each poll refreshes the server heartbeat with this PID', async () => {
+const agePidFile = () => {
+  const pidFile = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia', 'server.pid');
+  const old = new Date(Date.now() - 60 * 60 * 1000);
+  fs.utimesSync(pidFile, old, old);
+  return () => fs.statSync(pidFile).mtimeMs;
+};
+
+test('each poll refreshes the heartbeat on the PID file', async () => {
   const { startPolling, stopPolling } = loadPollerWithPidFile(process.pid);
-  const heartbeatFile = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia', 'server.heartbeat');
+  const readMtime = agePidFile();
   const state = {};
 
   startPolling(state, 60000, undefined, async () => {});
   try {
     await new Promise(resolve => setTimeout(resolve, 50));
-    assert.strictEqual(fs.readFileSync(heartbeatFile, 'utf8'), String(process.pid));
+    assert.ok(Date.now() - readMtime() < 5000);
   } finally {
     stopPolling(state);
   }
@@ -75,13 +81,14 @@ test('each poll refreshes the server heartbeat with this PID', async () => {
 
 test('a server that lost ownership does not refresh the heartbeat', async () => {
   const { startPolling, stopPolling } = loadPollerWithPidFile(process.pid + 1);
-  const heartbeatFile = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia', 'server.heartbeat');
+  const readMtime = agePidFile();
+  const before = readMtime();
   const state = {};
 
   startPolling(state, 60000, undefined, async () => {});
   try {
     await new Promise(resolve => setTimeout(resolve, 50));
-    assert.strictEqual(fs.existsSync(heartbeatFile), false);
+    assert.strictEqual(readMtime(), before);
   } finally {
     stopPolling(state);
   }

@@ -9,7 +9,7 @@
     "uncaffeinate": "node caffeine.js uncaffeinate",
     "status": "node caffeine.js status",
     "version": "node caffeine.js version",
-    "server": "npx electron caffeine.js server",
+    "server": "electron caffeine.js server",
     "native-server": "node caffeine.js server",
     "test": "node --test",
     "toc": "node scripts/generate-toc.js",

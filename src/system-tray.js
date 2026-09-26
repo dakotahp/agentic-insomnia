@@ -6,8 +6,6 @@ const { removePidFileWithLock } = require('./pid');
 const { disableCaffeine } = require('./backend');
 const package = require('../package.json');
 
-let trayState = null;
-
 const createIcon = isActive => {
   const { tray_icon_theme } = getConfig();
   const isMono = tray_icon_theme === 'monochrome';
@@ -24,29 +22,17 @@ const createIcon = isActive => {
   return image;
 };
 
-const createSystemTray = () => {
+const createSystemTray = state => {
   const { Tray, Menu } = getElectron();
 
-  if (!Tray) {
+  if (!Tray || !Menu) {
     throw new Error('Electron Tray is not available');
   }
 
-  try {
-    const tray = new Tray(createIcon(false));
-    tray.setToolTip('Agentic Insomnia: Normal');
-
-    trayState = {
-      tray,
-      isCaffeinated: false,
-      pollInterval: null,
-      powerSaveBlockerId: null
-    };
-
-    if (!Menu) {
-      throw new Error('Electron Menu is not available');
-    }
-
-    const contextMenu = Menu.buildFromTemplate([
+  const tray = new Tray(createIcon(false));
+  tray.setToolTip('Agentic Insomnia: Normal');
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
       {
         label: `Version: ${package.version}`,
         enabled: false
@@ -63,25 +49,14 @@ const createSystemTray = () => {
       {
         label: 'Exit',
         click: async () => {
-          await shutdownServer(trayState);
+          await shutdownServer(state);
           process.exit(0);
         }
       }
-    ]);
+    ])
+  );
 
-    tray.setContextMenu(contextMenu);
-    return trayState;
-  } catch (error) {
-    console.error('Error creating Electron system tray:', error);
-    throw error;
-  }
-};
-
-const getSystemTray = () => {
-  if (!trayState) {
-    return createSystemTray();
-  }
-  return trayState;
+  state.tray = tray;
 };
 
 const updateTrayIcon = state => {
@@ -96,11 +71,6 @@ const updateTrayIcon = state => {
 
 const shutdownServer = async state => {
   console.error('Shutting down caffeine server...');
-
-  if (!state) {
-    console.error('No state provided, exiting...');
-    return;
-  }
 
   if (state.stopPolling) {
     state.stopPolling();
@@ -126,12 +96,10 @@ const shutdownServer = async state => {
   } catch (error) {
     console.error('Error removing PID file:', error.message);
   }
-
-  trayState = null;
 };
 
 module.exports = {
-  getSystemTray,
+  createSystemTray,
   updateTrayIcon,
   shutdownServer
 };

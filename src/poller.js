@@ -1,4 +1,4 @@
-const { getActiveSessionsWithLock, cleanupExpiredSessionsWithLock } = require('./session');
+const { getActiveSessionsWithLock } = require('./session');
 const { enableCaffeine, disableCaffeine } = require('./backend');
 const { isPidFileOwnedByOther, writeHeartbeat } = require('./pid');
 const { getConfig } = require('./config');
@@ -6,7 +6,6 @@ const { getConfig } = require('./config');
 // A failed check counts as active, so a read error never ends a session early.
 const updateCaffeineStatus = async (state, onStateChange) => {
   try {
-    await cleanupExpiredSessionsWithLock();
     const activeSessions = await getActiveSessionsWithLock();
     const shouldCaffeinate = activeSessions.length > 0;
 
@@ -65,7 +64,7 @@ const checkOwnership = async (state, onOwnershipLost) => {
 
 const refreshHeartbeat = async () => {
   try {
-    await writeHeartbeat(process.pid);
+    await writeHeartbeat();
   } catch (error) {
     console.error('Error writing server heartbeat:', error.message);
   }
