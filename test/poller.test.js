@@ -20,8 +20,7 @@ const loadPollerWithPidFile = (pidFileContent, config = {}) => {
   }
 
   mockModule('../src/session', {
-    getActiveSessionsWithLock: async () => [],
-    cleanupExpiredSessionsWithLock: async () => {}
+    getActiveSessionsWithLock: async () => []
   });
   mockModule('../src/config', {
     getConfig: () => ({ server_shutdown_minutes: 30, ...config })

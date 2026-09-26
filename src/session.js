@@ -1,11 +1,9 @@
 const fs = require('fs');
-const path = require('path');
-const os = require('os');
 const lockfile = require('proper-lockfile');
 const { getConfig } = require('./config');
+const { configPath } = require('./paths');
 
-const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
-const SESSIONS_FILE = path.join(CONFIG_DIR, 'sessions.json');
+const sessionsFile = () => configPath('sessions.json');
 const getSessionTimeout = () => getConfig().stale_session_minutes * 60 * 1000;
 const getGracePeriod = () => getConfig().stay_awake_after_turn_minutes * 60 * 1000;
 const LOCK_OPTIONS = { retries: 10, stale: 30000 };
@@ -24,7 +22,7 @@ const emptySessions = () => ({ sessions: {}, last_updated: new Date().toISOStrin
 
 const initSessionsFile = async () => {
   try {
-    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(emptySessions(), null, 2), { flag: 'wx' });
+    fs.writeFileSync(sessionsFile(), JSON.stringify(emptySessions(), null, 2), { flag: 'wx' });
   } catch (error) {
     if (error.code !== 'EEXIST') {
       throw error;
@@ -34,7 +32,7 @@ const initSessionsFile = async () => {
 
 const readSessionsFile = () => {
   try {
-    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(sessionsFile(), 'utf8'));
     if (data && typeof data.sessions === 'object' && data.sessions !== null) {
       return data;
     }
@@ -50,144 +48,82 @@ const readSessionsFile = () => {
 
 // Rename is atomic, so a process that dies mid-write cannot leave a truncated file.
 const writeSessionsFile = data => {
-  const tempFile = `${SESSIONS_FILE}.${process.pid}.tmp`;
+  const tempFile = `${sessionsFile()}.${process.pid}.tmp`;
   fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
-  fs.renameSync(tempFile, SESSIONS_FILE);
+  fs.renameSync(tempFile, sessionsFile());
+};
+
+const withSessions = async operation => {
+  await initSessionsFile();
+  const release = await lockfile.lock(sessionsFile(), LOCK_OPTIONS);
+
+  try {
+    const data = readSessionsFile();
+    const original = JSON.stringify(data.sessions);
+    const now = new Date();
+
+    let cleaned = 0;
+    for (const [id, sessionData] of Object.entries(data.sessions)) {
+      if (!sessionHoldsLock(sessionData, now)) {
+        delete data.sessions[id];
+        cleaned++;
+      }
+    }
+
+    const result = operation(data.sessions, now.toISOString());
+
+    if (JSON.stringify(data.sessions) !== original) {
+      data.last_updated = now.toISOString();
+      writeSessionsFile(data);
+    }
+
+    return { result, cleaned };
+  } finally {
+    await release();
+  }
 };
 
 const addSessionWithLock = async sessionId => {
-  await initSessionsFile();
-
-  const release = await lockfile.lock(SESSIONS_FILE, LOCK_OPTIONS);
-
-  try {
-    const data = readSessionsFile();
-    const now = new Date().toISOString();
-
-    const nowDate = new Date();
-    let removedCount = 0;
-
-    for (const [existingSessionId, sessionData] of Object.entries(data.sessions)) {
-      if (!sessionHoldsLock(sessionData, nowDate)) {
-        delete data.sessions[existingSessionId];
-        removedCount++;
-      }
+  const { result, cleaned } = await withSessions((sessions, now) => {
+    const existing = sessions[sessionId];
+    if (existing) {
+      existing.last_activity = now;
+      existing.ended_at = null;
+      return 'updated';
     }
 
-    let isNewSession = false;
-    if (data.sessions[sessionId]) {
-      data.sessions[sessionId].last_activity = now;
-      data.sessions[sessionId].ended_at = null;
-    } else {
-      data.sessions[sessionId] = {
-        created_at: now,
-        last_activity: now,
-        ended_at: null,
-        project_dir: process.env.CLAUDE_PROJECT_DIR
-      };
-      isNewSession = true;
-    }
+    sessions[sessionId] = {
+      created_at: now,
+      last_activity: now,
+      ended_at: null,
+      project_dir: process.env.CLAUDE_PROJECT_DIR
+    };
+    return 'added';
+  });
 
-    data.last_updated = now;
-    writeSessionsFile(data);
-
-    const action = isNewSession ? 'added' : 'updated';
-
-    return { id: sessionId, cleaned_sessions: removedCount, action };
-  } finally {
-    await release();
-  }
+  return { id: sessionId, action: result, cleaned_sessions: cleaned };
 };
 
 const removeSessionWithLock = async sessionId => {
-  await initSessionsFile();
-
-  const release = await lockfile.lock(SESSIONS_FILE, LOCK_OPTIONS);
-
-  try {
-    const data = readSessionsFile();
-    const now = new Date().toISOString();
-    let changes = 0;
-
-    const nowDate = new Date();
-    let cleanedCount = 0;
-
-    for (const [existingSessionId, sessionData] of Object.entries(data.sessions)) {
-      if (!sessionHoldsLock(sessionData, nowDate)) {
-        delete data.sessions[existingSessionId];
-        cleanedCount++;
-      }
-    }
-
+  const { result, cleaned } = await withSessions((sessions, now) => {
+    const existing = sessions[sessionId];
     // Several hooks fire uncaffeinate for one turn. Without the ended_at guard
     // each one would push the grace window forward and it would never close.
-    if (data.sessions[sessionId] && !data.sessions[sessionId].ended_at) {
-      data.sessions[sessionId].ended_at = now;
-      changes = 1;
+    if (!existing || existing.ended_at) {
+      return 0;
     }
+    existing.ended_at = now;
+    return 1;
+  });
 
-    if (changes > 0 || cleanedCount > 0) {
-      data.last_updated = now;
-      writeSessionsFile(data);
-    }
-
-    return { changes, cleaned_sessions: cleanedCount };
-  } finally {
-    await release();
-  }
+  return { changes: result, cleaned_sessions: cleaned };
 };
 
 const getActiveSessionsWithLock = async () => {
-  await initSessionsFile();
-
-  const release = await lockfile.lock(SESSIONS_FILE, LOCK_OPTIONS);
-
-  try {
-    const data = readSessionsFile();
-    const now = new Date();
-    const activeSessions = [];
-
-    for (const [sessionId, sessionData] of Object.entries(data.sessions)) {
-      if (sessionHoldsLock(sessionData, now)) {
-        activeSessions.push({
-          id: sessionId,
-          ...sessionData
-        });
-      }
-    }
-
-    return activeSessions;
-  } finally {
-    await release();
-  }
-};
-
-const cleanupExpiredSessionsWithLock = async () => {
-  await initSessionsFile();
-
-  const release = await lockfile.lock(SESSIONS_FILE, LOCK_OPTIONS);
-
-  try {
-    const data = readSessionsFile();
-    const now = new Date();
-    let removedCount = 0;
-
-    for (const [sessionId, sessionData] of Object.entries(data.sessions)) {
-      if (!sessionHoldsLock(sessionData, now)) {
-        delete data.sessions[sessionId];
-        removedCount++;
-      }
-    }
-
-    if (removedCount > 0) {
-      data.last_updated = new Date().toISOString();
-      writeSessionsFile(data);
-    }
-
-    return { changes: removedCount };
-  } finally {
-    await release();
-  }
+  const { result } = await withSessions(sessions =>
+    Object.entries(sessions).map(([id, sessionData]) => ({ id, ...sessionData }))
+  );
+  return result;
 };
 
 module.exports = {
@@ -195,6 +131,5 @@ module.exports = {
   sessionHoldsLock,
   addSessionWithLock,
   removeSessionWithLock,
-  getActiveSessionsWithLock,
-  cleanupExpiredSessionsWithLock
+  getActiveSessionsWithLock
 };
