@@ -248,3 +248,22 @@ test('validatePid recognizes a native node caffeine server', async () => {
     child.kill();
   }
 });
+
+test('writePidFile records the backend next to the PID', async () => {
+  makeTempHome();
+  const pid = loadPid();
+
+  await pid.writePidFile(12345, 'native');
+
+  assert.strictEqual(await pid.readPidFile(), 12345);
+  assert.strictEqual(await pid.readServerBackend(), 'native');
+  assert.strictEqual(await pid.isHeartbeatFresh(12345), true);
+});
+
+test('readServerBackend is null for a PID file from an older server', async () => {
+  const home = makeTempHome();
+  fs.writeFileSync(pidFilePath(home), '12345');
+  const { readServerBackend } = loadPid();
+
+  assert.strictEqual(await readServerBackend(), null);
+});

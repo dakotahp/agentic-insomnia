@@ -156,7 +156,9 @@ guarded so only one of them starts a server:
    Electron backend. No npm, npx, or shell is involved. Electron downloads its binary the first
    time anything asks for its path, so the client never asks. `cli.js` does it inside the
    spawned process, and the hook does not wait.
-4. The server takes the same lock and writes its own PID.
+4. The server takes the same lock and writes its own PID to `server.pid`, with its backend on a
+   second line. `status` reads that line to report the running server's backend, which differs
+   from the configured one until the server restarts after a config change.
 
 "Is a server running?" means more than "the PID is alive", because a PID can be reused by an
 unrelated process. Hooks run this check on every tool call, so it has a fast path and a slow
