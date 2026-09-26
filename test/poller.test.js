@@ -170,3 +170,65 @@ test('checkIdle stops polling when it shuts down', async () => {
     clearInterval(interval);
   }
 });
+
+const loadPollerWithSessions = getActiveSessionsWithLock => {
+  const calls = { enable: 0, disable: 0 };
+  mockModule('../src/session', { getActiveSessionsWithLock });
+  mockModule('../src/config', {
+    getConfig: () => ({ server_shutdown_minutes: 30, stale_session_minutes: 15 })
+  });
+  mockModule('../src/backend', {
+    enableCaffeine: async state => {
+      calls.enable++;
+      state.isCaffeinated = true;
+    },
+    disableCaffeine: async state => {
+      calls.disable++;
+      state.isCaffeinated = false;
+    }
+  });
+  delete require.cache[require.resolve('../src/poller')];
+  return { poller: require('../src/poller'), calls };
+};
+
+const failingRead = async () => {
+  throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+};
+
+test('a failed session read keeps the current lock at first', async t => {
+  t.mock.method(console, 'error', () => {});
+  const { poller, calls } = loadPollerWithSessions(failingRead);
+  const state = { isCaffeinated: true };
+
+  assert.strictEqual(await poller.updateCaffeineStatus(state), true);
+  assert.strictEqual(calls.disable, 0);
+  assert.strictEqual(state.isCaffeinated, true);
+});
+
+test('session reads failing for stale_session_minutes release the lock', async t => {
+  t.mock.method(console, 'error', () => {});
+  const { poller, calls } = loadPollerWithSessions(failingRead);
+  const state = { isCaffeinated: true, readFailingSince: Date.now() - 16 * 60 * 1000 };
+
+  assert.strictEqual(await poller.updateCaffeineStatus(state), false);
+  assert.strictEqual(calls.disable, 1);
+  assert.strictEqual(state.isCaffeinated, false);
+});
+
+test('a failed session read never takes the lock', async t => {
+  t.mock.method(console, 'error', () => {});
+  const { poller, calls } = loadPollerWithSessions(failingRead);
+  const state = { isCaffeinated: false };
+
+  await poller.updateCaffeineStatus(state);
+
+  assert.strictEqual(calls.enable, 0);
+});
+
+test('a successful session read clears the failure clock', async () => {
+  const { poller } = loadPollerWithSessions(async () => [{ id: 'sess-1' }]);
+  const state = { isCaffeinated: true, readFailingSince: Date.now() - 16 * 60 * 1000 };
+
+  assert.strictEqual(await poller.updateCaffeineStatus(state), true);
+  assert.strictEqual(state.readFailingSince, null);
+});
