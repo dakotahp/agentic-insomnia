@@ -14,8 +14,7 @@
     "test": "node --test",
     "toc": "node scripts/generate-toc.js",
     "lint": "eslint *.js src/*.js scripts/*.js test/*.js opencode/*.mjs",
-    "lint:fix": "eslint --fix *.js src/*.js scripts/*.js test/*.js opencode/*.mjs",
-    "format": "prettier --write *.js src/*.js || echo 'prettier not installed'"
+    "lint:fix": "eslint --fix *.js src/*.js scripts/*.js test/*.js opencode/*.mjs"
   },
   "keywords": [
     "claude-code",
@@ -41,8 +40,7 @@
   },
   "devDependencies": {
     "eslint": "^10.0.1",
-    "globals": "^17.12.0",
-    "prettier": "^3.9.6"
+    "globals": "^17.12.0"
   },
   "engines": {
     "node": ">=22.12.0"

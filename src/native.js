@@ -1,15 +1,3 @@
-/**
- * Native backend - Prevents sleep with the OS sleep tool, without Electron.
- *
- * macOS runs `caffeinate`. Linux runs `systemd-inhibit`, which holds a logind
- * sleep lock for as long as its child command runs. Windows runs the built-in
- * PowerShell, which holds a kernel power request until it exits. The child
- * process is stored on the state object and killed on disable/shutdown.
- *
- * Dependencies are injectable (`setDependencies`) so the backend can be tested
- * on any OS without spawning real processes.
- */
-
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -155,15 +143,10 @@ const recordFailure = (state, reason) => {
   console.error(`Native sleep prevention disabled: ${reason}`);
 };
 
-/**
- * Enable caffeine (prevent sleep) by spawning the platform's sleep tool.
- *
- * A tool that fails to start, or exits before it holds the lock, is recorded on
- * `state.nativeFailure`, and later calls do nothing, so the poller does not
- * respawn a failing process on every tick. A tool with a `readyLine` holds the
- * lock once it prints that line. Other tools are trusted after EARLY_EXIT_MS.
- * @param {object} state - Tray state object with isCaffeinated / caffeinateProcess
- */
+// A tool that fails to start, or exits before it holds the lock, is recorded on
+// `state.nativeFailure`, and later calls do nothing, so the poller does not
+// respawn a failing process on every tick. A tool with a `readyLine` holds the
+// lock once it prints that line. Other tools are trusted after EARLY_EXIT_MS.
 const enableCaffeine = state => {
   if (state.isCaffeinated || state.nativeFailure) {
     return;
@@ -247,10 +230,6 @@ const enableCaffeine = state => {
   state.isCaffeinated = true;
 };
 
-/**
- * Disable caffeine (allow sleep) by killing the sleep tool child.
- * @param {object} state - Tray state object with isCaffeinated / caffeinateProcess
- */
 const disableCaffeine = state => {
   if (!state.isCaffeinated || !state.caffeinateProcess) {
     return;

@@ -1,27 +1,11 @@
-/**
- * Backend module - Handles the sleep-prevention mechanism
- *
- * This is the swappable seam: it dispatches to one of two backends based on
- * the `sleep_backend` config setting:
- *   - 'electron' (default): Electron's powerSaveBlocker
- *   - 'native':     the OS sleep tool via src/native.js (`caffeinate` on macOS,
- *                   `systemd-inhibit` on Linux, a PowerShell power request on
- *                   Windows), or 'electron' when no tool exists
- *
- * The decision (poller) and UI (system-tray) layers stay backend-agnostic.
- */
-
 const { getElectron } = require('./electron');
 const { getConfig } = require('./config');
 const native = require('./native');
 
 let resolvedBackend = null;
 
-/**
- * The backend this process uses. The result is cached so the server script
- * choice and the mechanism always agree for the life of the process.
- * @returns {'electron' | 'native'}
- */
+// Cached so the server script a client spawns and the mechanism that server
+// uses always agree for the life of the process.
 const getSleepBackend = () => {
   if (resolvedBackend) {
     return resolvedBackend;
@@ -41,10 +25,6 @@ const getSleepBackend = () => {
   return resolvedBackend;
 };
 
-/**
- * Enable caffeine (prevent sleep)
- * @param {object} state - Tray state object
- */
 const enableCaffeine = state => {
   if (getSleepBackend() === 'native') {
     native.enableCaffeine(state);
@@ -58,10 +38,6 @@ const enableCaffeine = state => {
   }
 };
 
-/**
- * Disable caffeine (allow sleep)
- * @param {object} state - Tray state object
- */
 const disableCaffeine = state => {
   if (getSleepBackend() === 'native') {
     native.disableCaffeine(state);

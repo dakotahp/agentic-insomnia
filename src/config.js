@@ -1,7 +1,3 @@
-/**
- * Config module - Reads user configuration from config.json
- */
-
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -38,12 +34,8 @@ const getConfig = () => {
   return cachedConfig;
 };
 
-/**
- * Write config.example.json next to config.json, so every setting and its default
- * is discoverable without checking out this repo. Generated from DEFAULTS rather
- * than shipped as a file, so it cannot drift when a setting is added or renamed.
- * Never reads or writes config.json.
- */
+// Generated from DEFAULTS rather than shipped as a file, so it cannot drift when
+// a setting is added or renamed.
 const writeExampleConfig = () => {
   const contents = `${JSON.stringify(DEFAULTS, null, 2)}\n`;
 
@@ -52,7 +44,7 @@ const writeExampleConfig = () => {
       return;
     }
   } catch {
-    // Missing or unreadable: fall through and write it.
+    // Missing or unreadable, so write it.
   }
 
   try {

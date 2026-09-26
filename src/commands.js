@@ -1,12 +1,3 @@
-#!/usr/bin/env node
-
-/**
- * Commands module - Handles all command-line interface functionality
- */
-
-const path = require('path');
-const fs = require('fs');
-
 const {
   addSessionWithLock,
   removeSessionWithLock,
@@ -16,13 +7,10 @@ const { isServerRunningWithLock } = require('./pid');
 const { runServerProcessIfNotStarted } = require('./server');
 const { getConfig } = require('./config');
 const { getSleepBackend } = require('./backend');
+const { version } = require('../package.json');
 
-/**
- * Handle session commands with JSON input from Claude Code hooks
- */
 const handleSessionCommand = async (action, sessionOperation) => {
   try {
-    // Read session_id from stdin (Claude Code hook format)
     let input = '';
     process.stdin.setEncoding('utf8');
 
@@ -40,10 +28,8 @@ const handleSessionCommand = async (action, sessionOperation) => {
       process.exit(1);
     }
 
-    // Execute the session operation
     const result = await sessionOperation(sessionId);
 
-    // For caffeinate command, ensure server is running
     if (action === 'caffeinate') {
       await runServerProcessIfNotStarted();
     }
@@ -52,7 +38,6 @@ const handleSessionCommand = async (action, sessionOperation) => {
       `${action === 'caffeinate' ? 'Enabled' : 'Disabled'} caffeine for session: ${sessionId}`
     );
 
-    // Log cleanup results if any
     if (result.cleaned_sessions > 0) {
       console.error(`Cleaned up ${result.cleaned_sessions} expired sessions`);
     }
@@ -64,57 +49,18 @@ const handleSessionCommand = async (action, sessionOperation) => {
   }
 };
 
-/**
- * Handle caffeinate command
- */
 const handleCaffeinate = () => {
   return handleSessionCommand('caffeinate', addSessionWithLock);
 };
 
-/**
- * Handle uncaffeinate command
- */
 const handleUncaffeinate = () => {
   return handleSessionCommand('uncaffeinate', removeSessionWithLock);
 };
 
-/**
- * Handle version command - show version from package.json and plugin.json
- */
 const handleVersion = () => {
-  try {
-    // Read package.json
-    const packagePath = path.join(__dirname, '..', 'package.json');
-    const packageData = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-    const packageVersion = packageData.version || 'unknown';
-
-    // Read plugin.json
-    const pluginPath = path.join(__dirname, '..', '.claude-plugin', 'plugin.json');
-    let pluginVersion = 'unknown';
-
-    try {
-      const pluginData = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
-      pluginVersion = pluginData.version || 'unknown';
-    } catch {
-      pluginVersion = 'not found';
-    }
-
-    console.error('=== Agentic Insomnia Version ===');
-    console.error(`Package version: ${packageVersion}`);
-    console.error(`Plugin version:  ${pluginVersion}`);
-
-    if (packageVersion !== pluginVersion && pluginVersion !== 'not found') {
-      console.error('⚠️  Warning: Package and plugin versions do not match!');
-    }
-  } catch (error) {
-    console.error('Error getting version:', error.message);
-    process.exit(1);
-  }
+  console.log(version);
 };
 
-/**
- * Handle status command - show current sessions and server status
- */
 const handleStatus = async () => {
   try {
     const serverRunning = await isServerRunningWithLock();
@@ -157,9 +103,6 @@ const handleStatus = async () => {
   }
 };
 
-/**
- * Show usage help
- */
 const handleUsage = () => {
   console.error('Usage: node caffeine.js [caffeinate|uncaffeinate|server|status|version]');
   console.error('');
@@ -168,22 +111,17 @@ const handleUsage = () => {
   console.error('  uncaffeinate   - End a session; sleep is allowed after the grace period');
   console.error('  server         - Start the caffeine server');
   console.error('  status         - Show current status and active sessions');
-  console.error('  version        - Show version information from package.json and plugin.json');
+  console.error('  version        - Show the installed version');
   console.error('');
   console.error('caffeinate and uncaffeinate read the session id as JSON on stdin:');
   console.error('  echo \'{"session_id": "my-job"}\' | node caffeine.js caffeinate');
   process.exit(1);
 };
 
-// Export command handlers and utilities
 module.exports = {
-  // Command handlers
   handleCaffeinate,
   handleUncaffeinate,
   handleStatus,
   handleVersion,
-  handleUsage,
-
-  // Session operations
-  handleSessionCommand
+  handleUsage
 };

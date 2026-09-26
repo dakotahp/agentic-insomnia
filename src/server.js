@@ -1,7 +1,3 @@
-/**
- * Server module - Handles server process management and startup
- */
-
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -25,11 +21,8 @@ const {
 const { getSleepBackend } = require('./backend');
 const { writeExampleConfig } = require('./config');
 
-const CHECK_INTERVAL = 5 * 1000; // 5 seconds
+const CHECK_INTERVAL = 5 * 1000;
 
-/**
- * Ensure server is running, start if needed
- */
 const runServerProcessIfNotStarted = async () => {
   let mustStart = false;
 
@@ -66,10 +59,6 @@ const runServerProcessIfNotStarted = async () => {
   }
 };
 
-/**
- * Spawn options for the detached `npm run` that starts the server
- * @param {string} platform - Value of process.platform
- */
 const serverSpawnOptions = platform => ({
   detached: true,
   stdio: 'ignore',
@@ -79,9 +68,6 @@ const serverSpawnOptions = platform => ({
   windowsHide: true
 });
 
-/**
- * Start server process using npm
- */
 const startServerProcess = async () => {
   console.error('Starting caffeine server...');
 
@@ -90,88 +76,52 @@ const startServerProcess = async () => {
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
 
-  // The native backend runs as a plain Node process, no Electron.
   const script = getSleepBackend() === 'native' ? 'native-server' : 'server';
 
   const serverProcess = spawn('npm', ['run', script], {
     ...serverSpawnOptions(process.platform),
-    cwd, // is needed to find the correct caffeine.js
+    cwd,
     env
   });
 
   serverProcess.unref();
 
-  // Wait for server to start
   await new Promise(resolve => setTimeout(resolve, 500));
-
-  return true;
 };
 
-/**
- * Handle server command - start Electron server or delegate with atomic file locking
- */
 const handleServer = async () => {
-  let mustStartServer = false;
-  let mustStartElectron = false;
-  let mustStartNative = false;
+  let mustStartHere = false;
+  let mustSpawnElectron = false;
 
   await withPidLock(async () => {
-    try {
-      // Inside the lock, check if server is already running
-      const alreadyRunning = await isServerRunning();
-      if (alreadyRunning) {
-        console.error('Caffeine server is already running');
-        return;
-      }
+    if (await isServerRunning()) {
+      console.error('Caffeine server is already running');
+      return;
+    }
 
-      if (isRunningInElectron()) {
-        mustStartServer = true;
-        console.error('Already running inside Electron, starting server...');
-        await writePidFile(process.pid);
-      } else if (getSleepBackend() === 'native') {
-        mustStartNative = true;
-        console.error('Native backend, starting server in this process...');
-        await writePidFile(process.pid);
-      } else {
-        mustStartElectron = true;
-        console.error('Not running inside Electron, spawning Electron process...');
-      }
-    } catch (error) {
-      if (error.code === 'ELOCKED' || error.code === 'EEXIST') {
-        // Another process has the lock, server is likely starting up
-        console.error('Server startup is in progress by another process');
-      } else {
-        console.error('Failed to acquire server startup lock:', error);
-        throw error;
-      }
+    if (isRunningInElectron() || getSleepBackend() === 'native') {
+      mustStartHere = true;
+      await writePidFile(process.pid);
+    } else {
+      mustSpawnElectron = true;
+      console.error('Not running inside Electron, spawning Electron process...');
     }
   });
 
-  if (mustStartNative) {
+  if (mustStartHere) {
     await startServer();
-  } else if (mustStartElectron) {
-    await spawnElectronProcess();
-  } else if (mustStartServer) {
-    await startServer();
+  } else if (mustSpawnElectron) {
+    spawnElectronProcess();
   } else if (isRunningInElectron()) {
-    await shutdownServer();
     process.exit(0);
   }
 };
 
-/**
- * Build the callback a server runs when another server has taken over the PID file
- * @param {() => void} exit - How this kind of server exits
- */
 const shutDownWhenSuperseded = exit => async state => {
   await shutdownServer(state);
   exit();
 };
 
-/**
- * Start the server. With the native backend this runs as a plain Node process
- * (no Electron); with the Electron backend it boots the headless tray app.
- */
 const startServer = async () => {
   writeExampleConfig();
 
@@ -181,15 +131,12 @@ const startServer = async () => {
 
   console.error('Loading Electron...');
 
-  // Prevent any window from being created
   preventWindowCreation();
 
   setupAppEventHandlers();
 
-  // Wait for app to be ready before starting system tray
   await whenReady();
 
-  // Start the actual server
   try {
     await initSessionsFile();
 
@@ -210,21 +157,17 @@ const startServer = async () => {
     const shutDown = shutDownWhenSuperseded(quit);
     startPolling(state, CHECK_INTERVAL, onStateChange, shutDown, shutDown);
 
-    // Only setup signal handlers if server actually started
-    if (state) {
-      // Handle process termination for Electron process
-      process.on('SIGINT', async () => {
-        console.error('Received SIGINT, shutting down server...');
-        await shutdownServer(state);
-        quit();
-      });
+    process.on('SIGINT', async () => {
+      console.error('Received SIGINT, shutting down server...');
+      await shutdownServer(state);
+      quit();
+    });
 
-      process.on('SIGTERM', async () => {
-        console.error('Received SIGTERM, shutting down server...');
-        await shutdownServer(state);
-        quit();
-      });
-    }
+    process.on('SIGTERM', async () => {
+      console.error('Received SIGTERM, shutting down server...');
+      await shutdownServer(state);
+      quit();
+    });
 
     return state;
   } catch (error) {
@@ -233,9 +176,6 @@ const startServer = async () => {
   }
 };
 
-/**
- * Start the server as a plain Node process (native backend, no Electron).
- */
 const startNativeServer = async () => {
   console.error('Starting native caffeine server...');
 
@@ -271,9 +211,6 @@ const startNativeServer = async () => {
   }
 };
 
-/**
- * Spawn new Electron process for server
- */
 const spawnElectronProcess = () => {
   const cwd = path.join(__dirname, '..');
 
@@ -284,7 +221,7 @@ const spawnElectronProcess = () => {
     stdio: 'inherit',
     shell: true,
     detached: false,
-    cwd, // is needed to find caffeine.js
+    cwd,
     env
   });
 
@@ -300,8 +237,6 @@ const spawnElectronProcess = () => {
   electronProcess.on('close', code => {
     process.exit(code || 0);
   });
-
-  return electronProcess.pid;
 };
 
 module.exports = {

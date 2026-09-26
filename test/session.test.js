@@ -149,12 +149,11 @@ test('addSessionWithLock cleans up expired sessions on the way in', async () => 
 test('initSessionsFile creates the file when missing', async () => {
   const home = makeTempHome();
   fs.mkdirSync(path.join(home, '.claude', 'plugins', 'agentic-insomnia'), { recursive: true });
-  const { initSessionsFile, readSessionsWithLock } = loadSession();
+  const { initSessionsFile } = loadSession();
 
   await initSessionsFile();
 
-  assert.ok(fs.existsSync(sessionsFile(home)));
-  const data = await readSessionsWithLock();
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
   assert.deepStrictEqual(data.sessions, {});
 });
 
