@@ -1,10 +1,8 @@
 const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const { configDir, configPath } = require('./paths');
 
-const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
-const EXAMPLE_CONFIG_FILE = path.join(CONFIG_DIR, 'config.example.json');
+const configFile = () => configPath('config.json');
+const exampleConfigFile = () => configPath('config.example.json');
 
 const DEFAULTS = {
   stay_awake_after_turn_minutes: 5, // 0 disables
@@ -23,8 +21,8 @@ const getConfig = () => {
 
   let userConfig = {};
   try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      userConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    if (fs.existsSync(configFile())) {
+      userConfig = JSON.parse(fs.readFileSync(configFile(), 'utf8'));
     }
   } catch (error) {
     console.error('Warning: Failed to read config file, using defaults:', error.message);
@@ -40,7 +38,7 @@ const writeExampleConfig = () => {
   const contents = `${JSON.stringify(DEFAULTS, null, 2)}\n`;
 
   try {
-    if (fs.readFileSync(EXAMPLE_CONFIG_FILE, 'utf8') === contents) {
+    if (fs.readFileSync(exampleConfigFile(), 'utf8') === contents) {
       return;
     }
   } catch {
@@ -48,8 +46,8 @@ const writeExampleConfig = () => {
   }
 
   try {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    fs.writeFileSync(EXAMPLE_CONFIG_FILE, contents);
+    fs.mkdirSync(configDir(), { recursive: true });
+    fs.writeFileSync(exampleConfigFile(), contents);
   } catch (error) {
     console.error('Warning: Failed to write config.example.json:', error.message);
   }

@@ -1,14 +1,13 @@
 const fs = require('fs');
-const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
 const lockfile = require('proper-lockfile');
 const { windowsPowerShellPath } = require('./native');
+const { configPath } = require('./paths');
 
-const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
-const PID_FILE = path.join(CONFIG_DIR, 'server.pid');
-const STARTUP_FILE = path.join(CONFIG_DIR, 'server.starting');
-const HEARTBEAT_FILE = path.join(CONFIG_DIR, 'server.heartbeat');
+const pidFile = () => configPath('server.pid');
+const startupFile = () => configPath('server.starting');
+const heartbeatFile = () => configPath('server.heartbeat');
 
 // A server only writes its PID once Electron has booted, which takes seconds.
 // Long enough to cover that window, short enough to retry a failed startup.
@@ -32,7 +31,7 @@ const LOCK_OPTIONS = { retries: 3, stale: 10000 };
 const withPidLock = async fn => {
   // proper-lockfile needs the file it locks to exist.
   try {
-    const fd = fs.openSync(PID_FILE, 'wx');
+    const fd = fs.openSync(pidFile(), 'wx');
     fs.closeSync(fd);
   } catch (err) {
     if (err.code !== 'EEXIST') {
@@ -40,7 +39,7 @@ const withPidLock = async fn => {
     }
   }
 
-  const release = await lockfile.lock(PID_FILE, LOCK_OPTIONS);
+  const release = await lockfile.lock(pidFile(), LOCK_OPTIONS);
   try {
     return await fn();
   } finally {
@@ -49,19 +48,19 @@ const withPidLock = async fn => {
 };
 
 const writePidFile = async pid => {
-  await fs.promises.writeFile(PID_FILE, pid.toString(), 'utf8');
+  await fs.promises.writeFile(pidFile(), pid.toString(), 'utf8');
   await writeHeartbeat(pid);
 };
 
 const writeHeartbeat = async pid => {
-  await fs.promises.writeFile(HEARTBEAT_FILE, pid.toString(), 'utf8');
+  await fs.promises.writeFile(heartbeatFile(), pid.toString(), 'utf8');
 };
 
 const isHeartbeatFresh = async pid => {
   try {
     const [content, stats] = await Promise.all([
-      fs.promises.readFile(HEARTBEAT_FILE, 'utf8'),
-      fs.promises.stat(HEARTBEAT_FILE)
+      fs.promises.readFile(heartbeatFile(), 'utf8'),
+      fs.promises.stat(heartbeatFile())
     ]);
     return (
       parseInt(content.trim(), 10) === pid && deps.now() - stats.mtimeMs < HEARTBEAT_STALE_MS
@@ -73,7 +72,7 @@ const isHeartbeatFresh = async pid => {
 
 const readPidFile = async () => {
   try {
-    const pidStr = await fs.promises.readFile(PID_FILE, 'utf8');
+    const pidStr = await fs.promises.readFile(pidFile(), 'utf8');
     const pid = parseInt(pidStr.trim(), 10);
 
     if (isNaN(pid) || pid <= 0) {
@@ -91,7 +90,7 @@ const readPidFile = async () => {
 
 const removePidFileWithLock = async () => {
   try {
-    const release = await lockfile.lock(PID_FILE, LOCK_OPTIONS);
+    const release = await lockfile.lock(pidFile(), LOCK_OPTIONS);
 
     try {
       await removePidFile();
@@ -109,8 +108,8 @@ const removePidFileWithLock = async () => {
 const removePidFile = async () => {
   const pid = await readPidFile();
   if (pid === process.pid) {
-    await fs.promises.unlink(PID_FILE);
-    await fs.promises.rm(HEARTBEAT_FILE, { force: true });
+    await fs.promises.unlink(pidFile());
+    await fs.promises.rm(heartbeatFile(), { force: true });
   }
 };
 
@@ -221,7 +220,7 @@ const isServerRunning = async () => {
 
 const isStartupInProgress = async () => {
   try {
-    const startedAt = parseInt(await fs.promises.readFile(STARTUP_FILE, 'utf8'), 10);
+    const startedAt = parseInt(await fs.promises.readFile(startupFile(), 'utf8'), 10);
 
     if (isNaN(startedAt)) {
       return false;
@@ -234,7 +233,7 @@ const isStartupInProgress = async () => {
 };
 
 const markStartupInProgress = async () => {
-  await fs.promises.writeFile(STARTUP_FILE, Date.now().toString(), 'utf8');
+  await fs.promises.writeFile(startupFile(), Date.now().toString(), 'utf8');
 };
 
 const isPidFileOwnedByOther = async ownPid => {

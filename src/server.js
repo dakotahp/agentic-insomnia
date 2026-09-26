@@ -2,7 +2,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const { initSessionsFile } = require('./session');
-const { getSystemTray, updateTrayIcon, shutdownServer } = require('./system-tray');
+const { createSystemTray, updateTrayIcon, shutdownServer } = require('./system-tray');
 const { startPolling } = require('./poller');
 const {
   isRunningInElectron,
@@ -117,96 +117,54 @@ const handleServer = async () => {
   }
 };
 
-const shutDownWhenSuperseded = exit => async state => {
-  await shutdownServer(state);
-  exit();
+const createState = () => ({
+  isCaffeinated: false,
+  powerSaveBlockerId: null,
+  caffeinateProcess: null,
+  tray: null
+});
+
+const runServer = async (state, onStateChange, exit) => {
+  await initSessionsFile();
+
+  const shutDown = async () => {
+    await shutdownServer(state);
+    exit();
+  };
+
+  startPolling(state, CHECK_INTERVAL, onStateChange, shutDown, shutDown);
+  process.on('SIGINT', shutDown);
+  process.on('SIGTERM', shutDown);
 };
 
 const startServer = async () => {
   writeExampleConfig();
-
-  if (getSleepBackend() === 'native') {
-    return startNativeServer();
-  }
-
-  console.error('Loading Electron...');
-
-  preventWindowCreation();
-
-  setupAppEventHandlers();
-
-  await whenReady();
+  const state = createState();
 
   try {
-    await initSessionsFile();
-
-    // The system tray is UI only. When Electron is unavailable it may fail;
-    // the server still runs headless.
-    let state;
-    let onStateChange;
-    try {
-      state = getSystemTray();
-      onStateChange = updateTrayIcon;
-      console.error('Caffeine server started successfully with system tray');
-    } catch (trayError) {
-      console.error('System tray unavailable, running headless:', trayError.message);
-      state = { isCaffeinated: false, powerSaveBlockerId: null, caffeinateProcess: null };
-      onStateChange = undefined;
+    if (getSleepBackend() === 'native') {
+      await runServer(state, undefined, () => process.exit(0));
+      console.error('Native caffeine server started');
+      return;
     }
 
-    const shutDown = shutDownWhenSuperseded(quit);
-    startPolling(state, CHECK_INTERVAL, onStateChange, shutDown, shutDown);
+    preventWindowCreation();
+    setupAppEventHandlers();
+    await whenReady();
 
-    process.on('SIGINT', async () => {
-      console.error('Received SIGINT, shutting down server...');
-      await shutdownServer(state);
-      quit();
-    });
+    // The tray is UI only, so the server still runs headless without it.
+    let onStateChange;
+    try {
+      createSystemTray(state);
+      onStateChange = updateTrayIcon;
+    } catch (trayError) {
+      console.error('System tray unavailable, running headless:', trayError.message);
+    }
 
-    process.on('SIGTERM', async () => {
-      console.error('Received SIGTERM, shutting down server...');
-      await shutdownServer(state);
-      quit();
-    });
-
-    return state;
+    await runServer(state, onStateChange, quit);
+    console.error('Electron caffeine server started');
   } catch (error) {
     console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-};
-
-const startNativeServer = async () => {
-  console.error('Starting native caffeine server...');
-
-  try {
-    await initSessionsFile();
-
-    const state = {
-      isCaffeinated: false,
-      powerSaveBlockerId: null,
-      caffeinateProcess: null
-    };
-
-    const shutDown = shutDownWhenSuperseded(() => process.exit(0));
-    startPolling(state, CHECK_INTERVAL, undefined, shutDown, shutDown);
-
-    process.on('SIGINT', async () => {
-      console.error('Received SIGINT, shutting down server...');
-      await shutdownServer(state);
-      process.exit(0);
-    });
-
-    process.on('SIGTERM', async () => {
-      console.error('Received SIGTERM, shutting down server...');
-      await shutdownServer(state);
-      process.exit(0);
-    });
-
-    console.error('Native caffeine server started successfully');
-    return state;
-  } catch (error) {
-    console.error('Failed to start native server:', error);
     process.exit(1);
   }
 };
