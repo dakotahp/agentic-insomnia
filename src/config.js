@@ -1,8 +1,11 @@
 const fs = require('fs');
-const { configDir, configPath } = require('./paths');
+const { configDir, configPath, legacyConfigPath } = require('./paths');
 
 const configFile = () => configPath('config.json');
 const exampleConfigFile = () => configPath('config.example.json');
+
+const readableConfigFile = () =>
+  [configFile(), legacyConfigPath()].find(file => file && fs.existsSync(file));
 
 const DEFAULTS = {
   stay_awake_after_turn_minutes: 5, // 0 disables
@@ -22,8 +25,9 @@ const getConfig = () => {
 
   let userConfig = {};
   try {
-    if (fs.existsSync(configFile())) {
-      userConfig = JSON.parse(fs.readFileSync(configFile(), 'utf8'));
+    const file = readableConfigFile();
+    if (file) {
+      userConfig = JSON.parse(fs.readFileSync(file, 'utf8'));
     }
   } catch (error) {
     console.error('Warning: Failed to read config file, using defaults:', error.message);
@@ -36,6 +40,11 @@ const getConfig = () => {
 // Generated from DEFAULTS rather than shipped as a file, so it cannot drift when
 // a setting is added or renamed.
 const writeExampleConfig = () => {
+  const file = readableConfigFile();
+  if (file && file === legacyConfigPath()) {
+    console.error(`Using ${legacyConfigPath()}. Move it to ${configFile()}.`);
+  }
+
   const contents = `${JSON.stringify(DEFAULTS, null, 2)}\n`;
 
   try {

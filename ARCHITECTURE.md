@@ -55,7 +55,8 @@ flowchart LR
 | `src/native.js` | Native backend: `caffeinate` on macOS, `systemd-inhibit` on Linux, a PowerShell power request on Windows. |
 | `src/system-tray.js` | **UI**: the tray icon and its Exit menu. Also owns server shutdown. |
 | `src/electron.js` | Loads Electron only when it is needed. |
-| `src/config.js` | Reads `~/.claude/plugins/agentic-insomnia/config.json` once and caches it. |
+| `src/config.js` | Reads `config.json` once and caches it. |
+| `src/paths.js` | Where the config and runtime files live on each OS. |
 | `hooks/hooks.json` | Claude Code hook registration used by the plugin install. |
 | `opencode/agentic-insomnia.mjs` | OpenCode plugin. One file, because OpenCode loads one plugin file. |
 | `test/` | `node --test` suites. |
@@ -87,7 +88,7 @@ and never sends one, the session still expires after `stale_session_minutes`.
 
 ## The session file
 
-Location: `~/.claude/plugins/agentic-insomnia/sessions.json`
+Location: `sessions.json` in the state folder (see "Where files live").
 
 ```json
 {
@@ -348,9 +349,28 @@ Known limits:
 - `powercfg /requests` shows the reason while the request is held. It needs an administrator
   terminal.
 
+## Where files live
+
+`paths.js` picks two folders. Every coding agent must share them, so they belong to no single
+agent. Claude Code's per-plugin `CLAUDE_PLUGIN_DATA` folder does not fit, because only Claude
+Code sets it.
+
+| OS | Config folder (`config.json`, `config.example.json`) | State folder (`sessions.json`, `server.pid`, `server.starting`) |
+|----|------|------|
+| macOS, Linux | `$XDG_CONFIG_HOME/agentic-insomnia`, default `~/.config/agentic-insomnia` | `$XDG_STATE_HOME/agentic-insomnia`, default `~/.local/state/agentic-insomnia` |
+| Windows | `%LOCALAPPDATA%\agentic-insomnia` | The same folder |
+
+`AGENTIC_INSOMNIA_DIR` puts both in one folder. Tests set it so they never touch a real
+folder.
+
+Older versions kept everything in `~/.claude/plugins/agentic-insomnia`. `config.js` still reads
+a `config.json` there while the config folder has none, unless `AGENTIC_INSOMNIA_DIR` is set.
+The server logs where to move it. Runtime files are not migrated: sessions last minutes, and a
+server from an older version keeps its own PID file there until it exits on idle.
+
 ## Configuration
 
-`config.js` merges `~/.claude/plugins/agentic-insomnia/config.json` over its defaults and caches
+`config.js` merges `config.json` from the config folder over its defaults and caches
 the result for the life of the process. A running server keeps its config until it restarts.
 See the README for the settings.
 

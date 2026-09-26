@@ -7,7 +7,8 @@ const path = require('node:path');
 const makeTempHome = () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-insomnia-pid-'));
   os.homedir = () => home;
-  fs.mkdirSync(path.join(home, '.claude', 'plugins', 'agentic-insomnia'), { recursive: true });
+  process.env.AGENTIC_INSOMNIA_DIR = path.join(home, 'data');
+  fs.mkdirSync(path.join(home, 'data'), { recursive: true });
   return home;
 };
 
@@ -34,7 +35,7 @@ test('writePidFile then readPidFile round-trips', async () => {
 
 test('readPidFile returns null for non-numeric content', async () => {
   const home = makeTempHome();
-  const pidFile = path.join(home, '.claude', 'plugins', 'agentic-insomnia', 'server.pid');
+  const pidFile = path.join(home, 'data', 'server.pid');
   fs.writeFileSync(pidFile, 'not-a-number');
 
   const { readPidFile } = loadPid();
@@ -159,7 +160,7 @@ test('commandLineQuery only ever embeds an integer PID', () => {
   assert.ok(!args[3].includes('Remove-Item'));
 });
 
-const pidFilePath = home => path.join(home, '.claude', 'plugins', 'agentic-insomnia', 'server.pid');
+const pidFilePath = home => path.join(home, 'data', 'server.pid');
 
 test('writePidFile leaves a fresh heartbeat for that PID', async () => {
   makeTempHome();
