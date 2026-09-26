@@ -359,10 +359,11 @@ every tool call and must not do file writes they do not need.
 Run `npm test` (Node's built-in `node --test`) and `npm run lint`. `npm run lint` fails on
 violations; `npm run lint:fix` fixes what it can.
 
-CI (`.github/workflows/ci.yml`) is one job on Ubuntu, on the Node version in `.node-version`.
-It checks that `package.json` and `.claude-plugin/plugin.json` have the same version, then runs
-lint, the tests, and `node caffeine.js version`. Tests must pass on every OS, so they never
-depend on the machine they run on:
+CI (`.github/workflows/ci.yml`) runs the same job on Ubuntu, macOS, and Windows, on the Node
+version in `.node-version`. It checks that `package.json` and both plugin manifests have the same
+version, then runs lint, the tests, and `node caffeine.js version`. Running on every OS catches
+path, spawn, and line-ending problems. The tests still never depend on the machine they run on,
+so a platform-specific branch is tested on every OS:
 
 - `native.js` takes its dependencies through `setDependencies({ spawn, platform,
   commandExists, isSystemdBooted, fileExists, now })`. Tests pass a fake child process, a fixed

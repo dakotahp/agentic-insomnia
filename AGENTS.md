@@ -59,9 +59,9 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
 - Config is cached per process. Restart the server after config changes.
 - The background server discards its logs. Debug with a foreground server.
 - `opencode/agentic-insomnia.mjs` stays one file with only a default export.
-- CI (`.github/workflows/ci.yml`) runs lint and tests on Ubuntu. Tests must not depend
-  on the host OS: pin the platform with `native.setDependencies` or `pid.setDependencies`, and mock
-  config/electron through `require.cache`.
+- CI (`.github/workflows/ci.yml`) runs lint and tests on Ubuntu, macOS, and Windows. Tests must
+  not depend on the host OS: pin the platform with `native.setDependencies` or
+  `pid.setDependencies`, and mock config/electron through `require.cache`.
 - `test/pid.test.js` spawns `ps` and fails with EPERM in sandboxes. That is not a bug.
 - `hooks/hooks.json` is shared by Claude Code and Codex. Codex does not define every Claude
   Code event, so a hook on an event Codex lacks silently never fires there.
