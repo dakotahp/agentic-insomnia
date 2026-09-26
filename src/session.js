@@ -27,14 +27,39 @@ const sessionHoldsLock = (sessionData, now) => {
   return now - new Date(sessionData.last_activity) < getSessionTimeout();
 };
 
+const emptySessions = () => ({ sessions: {}, last_updated: new Date().toISOString() });
+
 const initSessionsFile = async () => {
-  if (!fs.existsSync(SESSIONS_FILE)) {
-    const initialData = {
-      sessions: {},
-      last_updated: new Date().toISOString()
-    };
-    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(initialData, null, 2));
+  try {
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(emptySessions(), null, 2), { flag: 'wx' });
+  } catch (error) {
+    if (error.code !== 'EEXIST') {
+      throw error;
+    }
   }
+};
+
+const readSessionsFile = () => {
+  try {
+    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    if (data && typeof data.sessions === 'object' && data.sessions !== null) {
+      return data;
+    }
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) {
+      throw error;
+    }
+  }
+
+  console.error('Warning: sessions.json is corrupt, treating it as having no sessions');
+  return emptySessions();
+};
+
+// Rename is atomic, so a process that dies mid-write cannot leave a truncated file.
+const writeSessionsFile = data => {
+  const tempFile = `${SESSIONS_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+  fs.renameSync(tempFile, SESSIONS_FILE);
 };
 
 const readSessionsWithLock = async (retryCount = 0) => {
@@ -47,8 +72,7 @@ const readSessionsWithLock = async (retryCount = 0) => {
     });
 
     try {
-      const data = fs.readFileSync(SESSIONS_FILE, 'utf8');
-      return JSON.parse(data);
+      return readSessionsFile();
     } finally {
       await release();
     }
@@ -74,7 +98,7 @@ const addSessionWithLock = async sessionId => {
 
   try {
     // Read data while holding the lock
-    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    const data = readSessionsFile();
     const now = new Date().toISOString();
 
     // Clean up expired sessions first
@@ -106,7 +130,7 @@ const addSessionWithLock = async sessionId => {
 
     // Write updated data while still holding the lock
     data.last_updated = now;
-    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2));
+    writeSessionsFile(data);
 
     const action = isNewSession ? 'added' : 'updated';
 
@@ -127,7 +151,7 @@ const removeSessionWithLock = async sessionId => {
 
   try {
     // Read data while holding the lock
-    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    const data = readSessionsFile();
     const now = new Date().toISOString();
     let changes = 0;
 
@@ -152,7 +176,7 @@ const removeSessionWithLock = async sessionId => {
     // Write updated data while still holding the lock
     if (changes > 0 || cleanedCount > 0) {
       data.last_updated = now;
-      fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2));
+      writeSessionsFile(data);
     }
 
     if (cleanedCount > 0) {
@@ -174,7 +198,7 @@ const getActiveSessionsWithLock = async () => {
   });
 
   try {
-    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    const data = readSessionsFile();
     const now = new Date();
     const activeSessions = [];
 
@@ -202,7 +226,7 @@ const cleanupExpiredSessionsWithLock = async () => {
   });
 
   try {
-    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    const data = readSessionsFile();
     const now = new Date();
     let removedCount = 0;
 
@@ -215,7 +239,7 @@ const cleanupExpiredSessionsWithLock = async () => {
 
     if (removedCount > 0) {
       data.last_updated = new Date().toISOString();
-      fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2));
+      writeSessionsFile(data);
     }
 
     return { changes: removedCount };

@@ -274,3 +274,55 @@ test('cleanupExpiredSessionsWithLock removes a session past its grace window', a
   const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
   assert.strictEqual(data.sessions['grace-4'], undefined);
 });
+
+test('a corrupt sessions file counts as no active sessions', async t => {
+  t.mock.method(console, 'error', () => {});
+  const home = makeTempHome();
+  fs.writeFileSync(sessionsFile(home), '{"sessions": {"half-writ');
+  const { getActiveSessionsWithLock } = loadSession();
+
+  assert.deepStrictEqual(await getActiveSessionsWithLock(), []);
+});
+
+test('a sessions file without a sessions object counts as no active sessions', async t => {
+  t.mock.method(console, 'error', () => {});
+  const home = makeTempHome();
+  fs.writeFileSync(sessionsFile(home), 'null');
+  const { getActiveSessionsWithLock } = loadSession();
+
+  assert.deepStrictEqual(await getActiveSessionsWithLock(), []);
+});
+
+test('addSessionWithLock replaces a corrupt sessions file', async t => {
+  t.mock.method(console, 'error', () => {});
+  const home = makeTempHome();
+  fs.writeFileSync(sessionsFile(home), 'not json');
+  const { addSessionWithLock } = loadSession();
+
+  await addSessionWithLock('sess-1');
+
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
+  assert.deepStrictEqual(Object.keys(data.sessions), ['sess-1']);
+});
+
+test('writes leave no temporary files behind', async () => {
+  const home = makeTempHome();
+  const { addSessionWithLock, removeSessionWithLock } = loadSession();
+
+  await addSessionWithLock('sess-1');
+  await removeSessionWithLock('sess-1');
+
+  const files = fs.readdirSync(path.dirname(sessionsFile(home)));
+  assert.deepStrictEqual(files.filter(name => name.endsWith('.tmp')), []);
+});
+
+test('initSessionsFile keeps an existing file', async () => {
+  const home = makeTempHome();
+  writeSessions(home, { kept: { created_at: iso(0), last_activity: iso(0) } });
+  const { initSessionsFile } = loadSession();
+
+  await initSessionsFile();
+
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
+  assert.deepStrictEqual(Object.keys(data.sessions), ['kept']);
+});

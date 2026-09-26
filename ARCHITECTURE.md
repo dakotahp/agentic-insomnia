@@ -112,6 +112,9 @@ Location: `~/.claude/plugins/agentic-insomnia/sessions.json`
 - Many hooks can fire at once, so every read and write holds a
   [proper-lockfile](https://github.com/moxystudio/node-proper-lockfile) lock. The lock is held
   only for the read-modify-write itself.
+- Writes go to a temporary file that is then renamed over `sessions.json`, so a process that
+  dies mid-write cannot leave a truncated file. A file that still fails to parse counts as
+  having no sessions, so the lock is released instead of held forever.
 
 ### Why the grace period exists
 
