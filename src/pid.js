@@ -1,14 +1,3 @@
-#!/usr/bin/env node
-
-/**
- * PID management module - Handles atomic PID file operations and validation
- *
- * This module provides functions to:
- * - Atomically read/write PID files
- * - Validate if a PID belongs to a caffeine server process
- * - Clean up stale PID files
- */
-
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -38,8 +27,10 @@ const setDependencies = overrides => {
   deps = { ...deps, ...overrides };
 };
 
+const LOCK_OPTIONS = { retries: 3, stale: 10000 };
+
 const withPidLock = async fn => {
-  // create if not exists
+  // proper-lockfile needs the file it locks to exist.
   try {
     const fd = fs.openSync(PID_FILE, 'wx');
     fs.closeSync(fd);
@@ -47,55 +38,25 @@ const withPidLock = async fn => {
     if (err.code !== 'EEXIST') {
       throw err;
     }
-    // If EEXIST, file already exists, nothing to do
   }
 
-  let output = null;
-
-  const release = await lockfile.lock(PID_FILE, {
-    retries: 3,
-    stale: 10000 // 10 seconds
-  });
+  const release = await lockfile.lock(PID_FILE, LOCK_OPTIONS);
   try {
-    output = await fn();
+    return await fn();
   } finally {
     await release();
   }
-
-  return output;
 };
 
-/**
- * Write PID to file
- * @param {number} pid - Process ID to write
- */
 const writePidFile = async pid => {
-  try {
-    await fs.promises.writeFile(PID_FILE, pid.toString(), 'utf8');
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      // File doesn't exist, create it without locking
-      await fs.promises.writeFile(PID_FILE, pid.toString(), 'utf8');
-    } else {
-      throw error;
-    }
-  }
+  await fs.promises.writeFile(PID_FILE, pid.toString(), 'utf8');
   await writeHeartbeat(pid);
 };
 
-/**
- * Record that the server with this PID is alive
- * @param {number} pid - Process ID of the server
- */
 const writeHeartbeat = async pid => {
   await fs.promises.writeFile(HEARTBEAT_FILE, pid.toString(), 'utf8');
 };
 
-/**
- * Check whether the server with this PID refreshed its heartbeat recently
- * @param {number} pid - Process ID named in the PID file
- * @returns {Promise<boolean>}
- */
 const isHeartbeatFresh = async pid => {
   try {
     const [content, stats] = await Promise.all([
@@ -110,10 +71,6 @@ const isHeartbeatFresh = async pid => {
   }
 };
 
-/**
- * Read PID from file
- * @returns {number|null} PID if found and valid, null otherwise
- */
 const readPidFile = async () => {
   try {
     const pidStr = await fs.promises.readFile(PID_FILE, 'utf8');
@@ -126,21 +83,15 @@ const readPidFile = async () => {
     return pid;
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return null; // File doesn't exist
+      return null;
     }
     throw error;
   }
 };
 
-/**
- * Remove PID file
- */
 const removePidFileWithLock = async () => {
   try {
-    const release = await lockfile.lock(PID_FILE, {
-      retries: 3,
-      stale: 10000 // 10 seconds
-    });
+    const release = await lockfile.lock(PID_FILE, LOCK_OPTIONS);
 
     try {
       await removePidFile();
@@ -149,7 +100,6 @@ const removePidFileWithLock = async () => {
     }
   } catch (error) {
     if (error.code === 'ENOENT') {
-      // File already doesn't exist, that's fine
       return;
     }
     throw error;
@@ -164,12 +114,6 @@ const removePidFile = async () => {
   }
 };
 
-/**
- * Build the command that prints a process's full command line
- * @param {number} pid - Process ID to inspect
- * @param {string} platform - Value of os.platform()
- * @returns {{cmd: string, args: string[]}}
- */
 const commandLineQuery = (pid, platform) => {
   const safePid = String(Math.trunc(Number(pid)));
 
@@ -193,19 +137,14 @@ const commandLineQuery = (pid, platform) => {
   return { cmd: 'ps', args: ['-ww', '-p', safePid, '-o', 'command='] };
 };
 
-/**
- * Check if a process with given PID exists and is a caffeine server
- * @param {number} pid - Process ID to check
- * @returns {Promise<boolean>} True if process exists and is caffeine server
- */
 const validatePid = async pid => {
   try {
-    process.kill(pid, 0); // Signal 0 just checks if process exists
+    process.kill(pid, 0);
   } catch (error) {
+    // EPERM means the process exists but belongs to another user.
     if (error.code === 'ESRCH') {
       return false;
     }
-    // Other errors (like EPERM) mean process exists but we can't signal it
   }
 
   // Reading a command line on Windows starts PowerShell, which takes about a
@@ -217,11 +156,6 @@ const validatePid = async pid => {
   return commandLineIsCaffeineServer(pid);
 };
 
-/**
- * Check whether a running process's command line is a caffeine server
- * @param {number} pid - Process ID to inspect
- * @returns {Promise<boolean>}
- */
 const commandLineIsCaffeineServer = pid => {
   return new Promise(resolve => {
     const { cmd, args } = commandLineQuery(pid, deps.platform);
@@ -241,7 +175,6 @@ const commandLineIsCaffeineServer = pid => {
 
       const commandLine = output.trim().toLowerCase();
       for (const line of commandLine.split('\n')) {
-        // Check if command line contains both "caffeine" and "server"
         const isCaffeineServer =
           line.includes('caffeine server') || line.includes('caffeine.js server');
         const isElectron = line.includes('electron');
@@ -262,20 +195,8 @@ const commandLineIsCaffeineServer = pid => {
   });
 };
 
-/**
- * Check if caffeine server is running using PID file
- * @returns {Promise<boolean>} True if server is running
- */
-const isServerRunningWithLock = async () => {
-  return await withPidLock(async () => {
-    return await isServerRunning();
-  });
-};
+const isServerRunningWithLock = () => withPidLock(isServerRunning);
 
-/**
- * Check if caffeine server is running using PID file
- * @returns {Promise<boolean>} True if server is running
- */
 const isServerRunning = async () => {
   try {
     const pid = await readPidFile();
@@ -287,7 +208,6 @@ const isServerRunning = async () => {
     const isValid = await validatePid(pid);
 
     if (!isValid) {
-      // PID is stale, clean it up
       await removePidFile();
       return false;
     }
@@ -299,11 +219,6 @@ const isServerRunning = async () => {
   }
 };
 
-/**
- * Check whether a server startup was initiated recently enough that the server
- * may not have written its PID file yet
- * @returns {Promise<boolean>} True if a startup is still within the grace window
- */
 const isStartupInProgress = async () => {
   try {
     const startedAt = parseInt(await fs.promises.readFile(STARTUP_FILE, 'utf8'), 10);
@@ -314,22 +229,14 @@ const isStartupInProgress = async () => {
 
     return Date.now() - startedAt < STARTUP_GRACE_MS;
   } catch {
-    return false; // No marker, or unreadable - treat as no startup underway
+    return false;
   }
 };
 
-/**
- * Record that a server startup is being initiated now
- */
 const markStartupInProgress = async () => {
   await fs.promises.writeFile(STARTUP_FILE, Date.now().toString(), 'utf8');
 };
 
-/**
- * Check whether the PID file names a process other than the caller
- * @param {number} ownPid - PID of the calling server
- * @returns {Promise<boolean>} True only when the file holds a different valid PID
- */
 const isPidFileOwnedByOther = async ownPid => {
   const pid = await readPidFile();
   return pid !== null && pid !== ownPid;

@@ -1,12 +1,3 @@
-/**
- * System Tray module - Handles the UI (system tray indicator)
- *
- * UI only. The sleep-prevention mechanism lives in backend.js and the
- * decision logic in poller.js. The tray reacts to state changes via the
- * `onStateChange` callback the poller is wired with, so this module never
- * imports the poller (no cycle).
- */
-
 const path = require('path');
 
 const { getElectron } = require('./electron');
@@ -17,9 +8,6 @@ const package = require('../package.json');
 
 let trayState = null;
 
-/**
- * Create icon for system tray
- */
 const createIcon = isActive => {
   const { tray_icon_theme } = getConfig();
   const isMono = tray_icon_theme === 'monochrome';
@@ -36,9 +24,6 @@ const createIcon = isActive => {
   return image;
 };
 
-/**
- * Create system tray
- */
 const createSystemTray = () => {
   const { Tray, Menu } = getElectron();
 
@@ -92,16 +77,6 @@ const createSystemTray = () => {
   }
 };
 
-/**
- * Get current system tray state
- */
-const getSystemTrayState = () => {
-  return trayState;
-};
-
-/**
- * Get system tray instance
- */
 const getSystemTray = () => {
   if (!trayState) {
     return createSystemTray();
@@ -109,9 +84,6 @@ const getSystemTray = () => {
   return trayState;
 };
 
-/**
- * Update tray icon based on caffeine state
- */
 const updateTrayIcon = state => {
   if (!state || !state.tray) {
     return;
@@ -122,9 +94,6 @@ const updateTrayIcon = state => {
   state.tray.setToolTip(`Agentic Insomnia: ${state.isCaffeinated ? 'Caffeinated' : 'Normal'}`);
 };
 
-/**
- * Shutdown server and clean up resources
- */
 const shutdownServer = async state => {
   console.error('Shutting down caffeine server...');
 
@@ -133,19 +102,16 @@ const shutdownServer = async state => {
     return;
   }
 
-  // Stop polling (reference stored on the state by the poller)
   if (state.stopPolling) {
     state.stopPolling();
   }
 
-  // Always disable caffeine before shutting down
   try {
     await disableCaffeine(state);
   } catch (error) {
     console.error('Error disabling caffeine:', error.message);
   }
 
-  // Clean up Electron system tray
   try {
     if (state.tray) {
       state.tray.destroy();
@@ -155,22 +121,17 @@ const shutdownServer = async state => {
     console.error('Error destroying Electron system tray:', error.message);
   }
 
-  // Remove PID file
   try {
     await removePidFileWithLock();
   } catch (error) {
     console.error('Error removing PID file:', error.message);
   }
 
-  // Reset global state
   trayState = null;
 };
 
 module.exports = {
-  createIcon,
-  createSystemTray,
   getSystemTray,
-  getSystemTrayState,
   updateTrayIcon,
   shutdownServer
 };

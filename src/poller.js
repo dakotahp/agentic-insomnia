@@ -1,27 +1,10 @@
-/**
- * Poller module - Decides when to prevent/release sleep
- *
- * Polls the session store and toggles the backend on/off. It does not know
- * about the UI: the caller injects an `onStateChange` callback so the tray
- * layer can react without the poller importing it (breaking the old cycle).
- */
-
 const { getActiveSessionsWithLock, cleanupExpiredSessionsWithLock } = require('./session');
 const { enableCaffeine, disableCaffeine } = require('./backend');
 const { isPidFileOwnedByOther, writeHeartbeat } = require('./pid');
 const { getConfig } = require('./config');
 
-/**
- * Update caffeine status based on active sessions
- * @param {object} state - Tray state object
- * @param {(state: object) => void} [onStateChange] - Optional UI callback
- * @returns {Promise<boolean>} True if any session is active (also true when the check failed)
- */
+// A failed check counts as active, so a read error never ends a session early.
 const updateCaffeineStatus = async (state, onStateChange) => {
-  if (!state) {
-    return true;
-  }
-
   try {
     await cleanupExpiredSessionsWithLock();
     const activeSessions = await getActiveSessionsWithLock();
@@ -44,14 +27,6 @@ const updateCaffeineStatus = async (state, onStateChange) => {
   }
 };
 
-/**
- * Track how long no session has been active and shut the server down once
- * `server_shutdown_minutes` passes. A value of 0 disables the timeout.
- * @param {object} state - Tray state object
- * @param {boolean} hasActiveSessions - Result of the latest session check
- * @param {(state: object) => Promise<void>} onIdle - Shuts this server down
- * @returns {Promise<boolean>} True if the server shut down
- */
 const checkIdle = async (state, hasActiveSessions, onIdle) => {
   if (hasActiveSessions) {
     state.idleSince = null;
@@ -71,13 +46,7 @@ const checkIdle = async (state, hasActiveSessions, onIdle) => {
   return true;
 };
 
-/**
- * Stop polling and call `onOwnershipLost` when the PID file names another server.
- * A missing or unreadable PID file keeps this server running.
- * @param {object} state - Tray state object
- * @param {(state: object) => Promise<void>} onOwnershipLost - Shuts this server down
- * @returns {Promise<boolean>} True if this server still owns the PID file
- */
+// A missing or unreadable PID file keeps this server running.
 const checkOwnership = async (state, onOwnershipLost) => {
   try {
     if (!(await isPidFileOwnedByOther(process.pid))) {
@@ -94,9 +63,6 @@ const checkOwnership = async (state, onOwnershipLost) => {
   return false;
 };
 
-/**
- * Record that this server is alive, so clients can skip slow process lookups
- */
 const refreshHeartbeat = async () => {
   try {
     await writeHeartbeat(process.pid);
@@ -105,15 +71,7 @@ const refreshHeartbeat = async () => {
   }
 };
 
-/**
- * Start polling for session changes
- * @param {object} state - Tray state object
- * @param {number} [interval=10000] - Poll interval in ms
- * @param {(state: object) => void} [onStateChange] - Optional UI callback
- * @param {(state: object) => Promise<void>} [onOwnershipLost] - Called when another server owns the PID file
- * @param {(state: object) => Promise<void>} [onIdle] - Called when no session has been active for `server_shutdown_minutes`
- */
-const startPolling = (state, interval = 10000, onStateChange, onOwnershipLost, onIdle) => {
+const startPolling = (state, interval, onStateChange, onOwnershipLost, onIdle) => {
   const poll = async () => {
     if (onOwnershipLost && !(await checkOwnership(state, onOwnershipLost))) {
       return;
@@ -133,10 +91,6 @@ const startPolling = (state, interval = 10000, onStateChange, onOwnershipLost, o
   state.stopPolling = () => stopPolling(state);
 };
 
-/**
- * Stop polling
- * @param {object} state - Tray state object
- */
 const stopPolling = state => {
   if (state && state.pollInterval) {
     try {
@@ -149,7 +103,6 @@ const stopPolling = state => {
 };
 
 module.exports = {
-  updateCaffeineStatus,
   checkOwnership,
   checkIdle,
   startPolling,

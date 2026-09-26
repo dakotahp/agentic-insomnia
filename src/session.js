@@ -8,17 +8,10 @@ const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomn
 const SESSIONS_FILE = path.join(CONFIG_DIR, 'sessions.json');
 const getSessionTimeout = () => getConfig().stale_session_minutes * 60 * 1000;
 const getGracePeriod = () => getConfig().stay_awake_after_turn_minutes * 60 * 1000;
-const MAX_RETRIES = 10;
+const LOCK_OPTIONS = { retries: 10, stale: 30000 };
 
-/**
- * Whether a session still holds the sleep lock.
- *
- * Once `ended_at` is stamped the grace window governs alone, so a long-running
- * session that just ended is not dropped by the session timeout as well.
- * @param {object} sessionData - A session entry from sessions.json
- * @param {Date} now - The current time
- * @returns {boolean}
- */
+// Once `ended_at` is stamped the grace window governs alone, so a long-running
+// session that just ended is not dropped by the session timeout as well.
 const sessionHoldsLock = (sessionData, now) => {
   if (sessionData.ended_at) {
     return now - new Date(sessionData.ended_at) < getGracePeriod();
@@ -62,46 +55,15 @@ const writeSessionsFile = data => {
   fs.renameSync(tempFile, SESSIONS_FILE);
 };
 
-const readSessionsWithLock = async (retryCount = 0) => {
-  try {
-    await initSessionsFile();
-
-    const release = await lockfile.lock(SESSIONS_FILE, {
-      retries: MAX_RETRIES,
-      stale: 30000 // 30 seconds
-    });
-
-    try {
-      return readSessionsFile();
-    } finally {
-      await release();
-    }
-  } catch (error) {
-    if (retryCount < MAX_RETRIES) {
-      console.warn(`Retry ${retryCount + 1}/${MAX_RETRIES} for readSessionsWithLock`);
-      await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
-      return readSessionsWithLock(retryCount + 1);
-    }
-    throw error;
-  }
-};
-
-// Note: Individual write operations should use addSession/removeSession for atomicity
-
 const addSessionWithLock = async sessionId => {
   await initSessionsFile();
 
-  const release = await lockfile.lock(SESSIONS_FILE, {
-    retries: MAX_RETRIES,
-    stale: 30000 // 30 seconds
-  });
+  const release = await lockfile.lock(SESSIONS_FILE, LOCK_OPTIONS);
 
   try {
-    // Read data while holding the lock
     const data = readSessionsFile();
     const now = new Date().toISOString();
 
-    // Clean up expired sessions first
     const nowDate = new Date();
     let removedCount = 0;
 
@@ -112,13 +74,11 @@ const addSessionWithLock = async sessionId => {
       }
     }
 
-    // Add or update the session
     let isNewSession = false;
     if (data.sessions[sessionId]) {
       data.sessions[sessionId].last_activity = now;
       data.sessions[sessionId].ended_at = null;
     } else {
-      // Create new session
       data.sessions[sessionId] = {
         created_at: now,
         last_activity: now,
@@ -128,13 +88,11 @@ const addSessionWithLock = async sessionId => {
       isNewSession = true;
     }
 
-    // Write updated data while still holding the lock
     data.last_updated = now;
     writeSessionsFile(data);
 
     const action = isNewSession ? 'added' : 'updated';
 
-    // console.error(`Cleaned up ${removedCount} expired sessions and ${action} session: ${sessionId}`);
     return { id: sessionId, cleaned_sessions: removedCount, action };
   } finally {
     await release();
@@ -144,18 +102,13 @@ const addSessionWithLock = async sessionId => {
 const removeSessionWithLock = async sessionId => {
   await initSessionsFile();
 
-  const release = await lockfile.lock(SESSIONS_FILE, {
-    retries: MAX_RETRIES,
-    stale: 30000 // 30 seconds
-  });
+  const release = await lockfile.lock(SESSIONS_FILE, LOCK_OPTIONS);
 
   try {
-    // Read data while holding the lock
     const data = readSessionsFile();
     const now = new Date().toISOString();
     let changes = 0;
 
-    // Clean up expired sessions first
     const nowDate = new Date();
     let cleanedCount = 0;
 
@@ -173,14 +126,9 @@ const removeSessionWithLock = async sessionId => {
       changes = 1;
     }
 
-    // Write updated data while still holding the lock
     if (changes > 0 || cleanedCount > 0) {
       data.last_updated = now;
       writeSessionsFile(data);
-    }
-
-    if (cleanedCount > 0) {
-      // console.error(`Cleaned up ${cleanedCount} expired sessions`);
     }
 
     return { changes, cleaned_sessions: cleanedCount };
@@ -192,10 +140,7 @@ const removeSessionWithLock = async sessionId => {
 const getActiveSessionsWithLock = async () => {
   await initSessionsFile();
 
-  const release = await lockfile.lock(SESSIONS_FILE, {
-    retries: MAX_RETRIES,
-    stale: 30000 // 30 seconds
-  });
+  const release = await lockfile.lock(SESSIONS_FILE, LOCK_OPTIONS);
 
   try {
     const data = readSessionsFile();
@@ -220,10 +165,7 @@ const getActiveSessionsWithLock = async () => {
 const cleanupExpiredSessionsWithLock = async () => {
   await initSessionsFile();
 
-  const release = await lockfile.lock(SESSIONS_FILE, {
-    retries: MAX_RETRIES,
-    stale: 30000 // 30 seconds
-  });
+  const release = await lockfile.lock(SESSIONS_FILE, LOCK_OPTIONS);
 
   try {
     const data = readSessionsFile();
@@ -251,7 +193,6 @@ const cleanupExpiredSessionsWithLock = async () => {
 module.exports = {
   initSessionsFile,
   sessionHoldsLock,
-  readSessionsWithLock,
   addSessionWithLock,
   removeSessionWithLock,
   getActiveSessionsWithLock,

@@ -4,13 +4,6 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-/**
- * Main entry point for the Agentic Insomnia application
- *
- * This file contains the main() function and orchestrates all modules.
- * All functionality has been split into separate modules for better organization.
- */
-
 const {
   handleCaffeinate,
   handleUncaffeinate,
@@ -22,22 +15,8 @@ const { handleServer } = require('./src/server');
 
 const CONFIG_DIR = path.join(os.homedir(), '.claude', 'plugins', 'agentic-insomnia');
 
-const ensureConfigDir = () => {
-  try {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  } catch (error) {
-    if (error.code !== 'EEXIST') {
-      throw error;
-    }
-  }
-};
-
-/**
- * Main application entry point
- * Handles command routing and delegates to appropriate modules
- */
 const main = async () => {
-  ensureConfigDir();
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
 
   const command = process.argv[2];
 
@@ -62,7 +41,6 @@ const main = async () => {
   }
 };
 
-// Handle uncaught errors gracefully
 main().catch(error => {
   console.error('Fatal error:', error);
   process.exit(1);
