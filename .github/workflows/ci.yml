@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [master]
   pull_request:
 
 permissions:
@@ -9,7 +10,11 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
@@ -25,6 +30,7 @@ jobs:
         run: npm ci
 
       - name: Check package.json and plugin.json versions match
+        shell: bash
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           for MANIFEST in .claude-plugin/plugin.json plugin.json; do
