@@ -9,7 +9,8 @@ const {
   preventWindowCreation,
   setupAppEventHandlers,
   whenReady,
-  quit
+  onAppQuit,
+  exitApp
 } = require('./electron');
 const {
   isServerRunning,
@@ -139,6 +140,7 @@ const runServer = async (state, onStateChange, exit) => {
   startPolling(state, CHECK_INTERVAL, onStateChange, shutDown, shutDown);
   process.on('SIGINT', shutDown);
   process.on('SIGTERM', shutDown);
+  return shutDown;
 };
 
 const startServer = async () => {
@@ -165,7 +167,7 @@ const startServer = async () => {
       console.error('System tray unavailable, running headless:', trayError.message);
     }
 
-    await runServer(state, onStateChange, quit);
+    onAppQuit(await runServer(state, onStateChange, exitApp));
     console.error('Electron caffeine server started');
   } catch (error) {
     console.error('Failed to start server:', error);
