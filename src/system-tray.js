@@ -73,12 +73,6 @@ const createSystemTray = () => {
         }
       },
       {
-        label: '💖 Sponsor',
-        click: () => {
-          getElectron().shell.openExternal('https://github.com/sponsors/samber');
-        }
-      },
-      {
         type: 'separator'
       },
       {
