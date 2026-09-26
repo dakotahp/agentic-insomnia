@@ -65,11 +65,13 @@ flowchart LR
 Every coding agent ends up calling the same two client commands, so all session and timeout
 logic lives in one place.
 
-- **Claude Code** runs hooks from `hooks/hooks.json`. `UserPromptSubmit`, `PreToolUse`, and
-  `PostToolUse` call `caffeinate`. `Stop` and `SessionEnd` call `uncaffeinate`. Each hook
-  pipes `{"session_id": "..."}` to the command's stdin.
+- **Claude Code** runs hooks from `hooks/hooks.json`. `UserPromptSubmit` calls `caffeinate`.
+  `PreToolUse` calls `tool-start` and `PostToolUse` calls `tool-end`, which both do what
+  `caffeinate` does and also mark or clear a running tool. `Stop` and `SessionEnd` call
+  `uncaffeinate`. Each hook pipes `{"session_id": "..."}` to the command's stdin.
 - **OpenCode** has no external hooks, so `opencode/agentic-insomnia.mjs` listens to in-process
   events. `session.created`, `command.executed`, and `message.updated` map to `caffeinate`.
+  `tool.execute.before` and `tool.execute.after` map to `tool-start` and `tool-end`.
   `session.idle` and `session.deleted` map to `uncaffeinate`. The plugin then runs the same
   CLI.
 - **Codex** reads the same `hooks/hooks.json`. Its hook format, event names, and
@@ -100,12 +102,17 @@ Location: `~/.claude/plugins/agentic-insomnia/sessions.json`
 ```
 
 - `caffeinate` adds a session, or updates `last_activity` and clears `ended_at` if it
-  exists. `uncaffeinate` stamps `ended_at` rather than removing the session. Several hooks
+  exists. `tool-start` does the same and stamps `tool_started_at`. `tool-end` and a plain
+  `caffeinate` clear it, so a tool that was interrupted before `PostToolUse` fired cannot
+  leave the stamp behind past the next prompt. `uncaffeinate` stamps `ended_at` rather than removing the session. Several hooks
   fire `uncaffeinate` for one turn, so an already stamped session is left alone and the
   grace window cannot be pushed forward.
 - `sessionHoldsLock` decides whether a session still holds the sleep lock. A session with
   no `ended_at` holds it until `stale_session_minutes` (default 15) of silence, which is
-  the fallback for a session whose `Stop` hook never fired. A session with `ended_at` holds
+  the fallback for a session whose `Stop` hook never fired. A tool call sends no hooks while
+  it runs, so a session with `tool_started_at` also holds the lock until
+  `long_tool_call_minutes` (default 120) after the tool started. That limit caps a stamp
+  that `PostToolUse` never cleared. A session with `ended_at` holds
   it until `stay_awake_after_turn_minutes` (default 5) have passed, and the stale-session
   timeout no longer applies. Sessions that hold nothing are removed on every add, remove,
   and poll.

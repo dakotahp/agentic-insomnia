@@ -344,3 +344,55 @@ test('a repeated uncaffeinate reports no change', async () => {
 
   assert.strictEqual(result.changes, 0);
 });
+
+test('sessionHoldsLock holds a session running a tool past the stale timeout', () => {
+  makeTempHome();
+  const { sessionHoldsLock } = loadSession();
+  const session = { last_activity: iso(30 * MINUTE), tool_started_at: iso(30 * MINUTE) };
+
+  assert.strictEqual(sessionHoldsLock(session, new Date()), true);
+});
+
+test('sessionHoldsLock drops a session whose tool ran past long_tool_call_minutes', () => {
+  makeTempHome();
+  const { sessionHoldsLock } = loadSession();
+  const session = { last_activity: iso(130 * MINUTE), tool_started_at: iso(130 * MINUTE) };
+
+  assert.strictEqual(sessionHoldsLock(session, new Date()), false);
+});
+
+test('sessionHoldsLock ignores a running tool once the session has ended', () => {
+  makeTempHome();
+  const { sessionHoldsLock } = loadSession();
+  const session = {
+    last_activity: iso(30 * MINUTE),
+    tool_started_at: iso(30 * MINUTE),
+    ended_at: iso(10 * MINUTE)
+  };
+
+  assert.strictEqual(sessionHoldsLock(session, new Date()), false);
+});
+
+test('a tool start marks the session and a tool end clears it', async () => {
+  const home = makeTempHome();
+  const { addSessionWithLock } = loadSession();
+  const toolStartedAt = () =>
+    JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8')).sessions['sess-1'].tool_started_at;
+
+  await addSessionWithLock('sess-1', 'start');
+  assert.ok(toolStartedAt());
+
+  await addSessionWithLock('sess-1', 'end');
+  assert.strictEqual(toolStartedAt(), null);
+});
+
+test('a plain caffeinate, such as a new prompt, clears a tool mark left by an interrupted tool', async () => {
+  const home = makeTempHome();
+  const { addSessionWithLock } = loadSession();
+
+  await addSessionWithLock('sess-1', 'start');
+  await addSessionWithLock('sess-1');
+
+  const data = JSON.parse(fs.readFileSync(sessionsFile(home), 'utf8'));
+  assert.strictEqual(data.sessions['sess-1'].tool_started_at, null);
+});

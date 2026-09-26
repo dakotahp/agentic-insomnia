@@ -4,6 +4,8 @@ const fs = require('fs');
 
 const {
   handleCaffeinate,
+  handleToolStart,
+  handleToolEnd,
   handleUncaffeinate,
   handleStatus,
   handleVersion,
@@ -20,6 +22,12 @@ const main = async () => {
   switch (command) {
   case 'caffeinate':
     await handleCaffeinate();
+    break;
+  case 'tool-start':
+    await handleToolStart();
+    break;
+  case 'tool-end':
+    await handleToolEnd();
     break;
   case 'uncaffeinate':
     await handleUncaffeinate();

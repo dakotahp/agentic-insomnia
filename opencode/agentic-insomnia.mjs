@@ -122,10 +122,10 @@ const createHooks = ctx => {
     },
 
     'tool.execute.before': async input => {
-      await handle('caffeinate', extractSessionId(null, input));
+      await handle('tool-start', extractSessionId(null, input));
     },
     'tool.execute.after': async input => {
-      await handle('caffeinate', extractSessionId(null, input));
+      await handle('tool-end', extractSessionId(null, input));
     }
   };
 };
