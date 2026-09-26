@@ -159,16 +159,14 @@ test('commandLineQuery only ever embeds an integer PID', () => {
   assert.ok(!args[3].includes('Remove-Item'));
 });
 
-const heartbeatPath = home =>
-  path.join(home, '.claude', 'plugins', 'agentic-insomnia', 'server.heartbeat');
+const pidFilePath = home => path.join(home, '.claude', 'plugins', 'agentic-insomnia', 'server.pid');
 
-test('writePidFile also writes a fresh heartbeat for that PID', async () => {
-  const home = makeTempHome();
+test('writePidFile leaves a fresh heartbeat for that PID', async () => {
+  makeTempHome();
   const { writePidFile, isHeartbeatFresh } = loadPid();
 
   await writePidFile(12345);
 
-  assert.strictEqual(fs.readFileSync(heartbeatPath(home), 'utf8'), '12345');
   assert.strictEqual(await isHeartbeatFresh(12345), true);
 });
 
@@ -178,41 +176,54 @@ test('isHeartbeatFresh is false when missing, for another PID, or when old', asy
 
   assert.strictEqual(await pid.isHeartbeatFresh(12345), false);
 
-  await pid.writeHeartbeat(12345);
+  await pid.writePidFile(12345);
   assert.strictEqual(await pid.isHeartbeatFresh(54321), false);
 
   pid.setDependencies({ now: () => Date.now() + pid.HEARTBEAT_STALE_MS + 1000 });
   assert.strictEqual(await pid.isHeartbeatFresh(12345), false);
 });
 
-test('validatePid on Windows trusts a fresh heartbeat without reading the command line', async () => {
-  makeTempHome();
+test('writeHeartbeat refreshes the PID file without changing it', async () => {
+  const home = makeTempHome();
   const pid = loadPid();
-  pid.setDependencies({ platform: 'win32' });
+  await pid.writePidFile(12345);
+  const old = new Date(Date.now() - pid.HEARTBEAT_STALE_MS - 1000);
+  fs.utimesSync(pidFilePath(home), old, old);
+  assert.strictEqual(await pid.isHeartbeatFresh(12345), false);
 
-  await pid.writeHeartbeat(process.pid);
+  await pid.writeHeartbeat();
 
-  assert.strictEqual(await pid.validatePid(process.pid), true);
+  assert.strictEqual(await pid.isHeartbeatFresh(12345), true);
+  assert.strictEqual(fs.readFileSync(pidFilePath(home), 'utf8'), '12345');
 });
 
-test('validatePid on Windows ignores a heartbeat when the PID is dead', async () => {
+test('writeHeartbeat does not create a missing PID file', async () => {
+  const home = makeTempHome();
+  const { writeHeartbeat } = loadPid();
+
+  await assert.rejects(writeHeartbeat(), { code: 'ENOENT' });
+  assert.strictEqual(fs.existsSync(pidFilePath(home)), false);
+});
+
+for (const platform of ['darwin', 'linux', 'win32']) {
+  test(`validatePid on ${platform} trusts a fresh heartbeat without reading the command line`, async () => {
+    makeTempHome();
+    const pid = loadPid();
+    pid.setDependencies({ platform });
+
+    await pid.writePidFile(process.pid);
+
+    assert.strictEqual(await pid.validatePid(process.pid), true);
+  });
+}
+
+test('validatePid ignores a fresh heartbeat when the PID is dead', async () => {
   makeTempHome();
   const pid = loadPid();
-  pid.setDependencies({ platform: 'win32' });
 
-  await pid.writeHeartbeat(999999);
+  await pid.writePidFile(999999);
 
   assert.strictEqual(await pid.validatePid(999999), false);
-});
-
-test('removePidFile removes this server heartbeat', async () => {
-  const home = makeTempHome();
-  const { writePidFile, removePidFile } = loadPid();
-
-  await writePidFile(process.pid);
-  await removePidFile();
-
-  assert.strictEqual(fs.existsSync(heartbeatPath(home)), false);
 });
 
 test('validatePid recognizes a native node caffeine server', async () => {

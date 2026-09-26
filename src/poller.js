@@ -64,7 +64,7 @@ const checkOwnership = async (state, onOwnershipLost) => {
 
 const refreshHeartbeat = async () => {
   try {
-    await writeHeartbeat(process.pid);
+    await writeHeartbeat();
   } catch (error) {
     console.error('Error writing server heartbeat:', error.message);
   }

@@ -155,28 +155,32 @@ guarded so only one of them starts a server:
    (plain Node), based on the resolved backend.
 4. The server takes the same lock and writes its own PID.
 
-"Is a server running?" means more than "the PID is alive". `pid.js` also reads that process's
-command line (`ps -ww`, or PowerShell `Get-CimInstance` on Windows) and checks that it is a
-caffeine server. A PID reused by an unrelated process is not trusted.
+"Is a server running?" means more than "the PID is alive", because a PID can be reused by an
+unrelated process. Hooks run this check on every tool call, so it has a fast path and a slow
+path:
 
-On Windows, starting PowerShell takes about a second, and hooks run this check on every tool
-call. So on Windows a live PID with a fresh `server.heartbeat` counts as running, and the command
-line is not read. The server writes the heartbeat together with its PID and refreshes it on every
-poll. A heartbeat that names another PID, or is older than 30 seconds, is ignored, and the check
-falls back to the command line.
+- **Fast path**: the server's heartbeat is the modified time of `server.pid`. The server sets it
+  when it writes its PID and refreshes it on every poll. A live PID whose `server.pid` was
+  modified in the last 30 seconds counts as running. This costs one file read and one `stat`.
+- **Slow path**: when the heartbeat is stale, `pid.js` reads the process's command line (`ps -ww`,
+  or PowerShell `Get-CimInstance` on Windows) and checks that it is a caffeine server. This
+  spawns a process, and PowerShell takes about a second to start.
+
+The heartbeat refreshes the modified time only. It never rewrites or creates `server.pid`, so it
+cannot overwrite the PID of a server that has replaced this one.
 
 ### Running
 
-The server calls `startPolling(state, 5000, onStateChange, onOwnershipLost)`. On each tick the
-poller:
+The server calls `startPolling(state, 5000, onStateChange, onOwnershipLost, onIdle)`. On each
+tick the poller:
 
 1. checks that `server.pid` still names this server; if another server owns it, the poller
    stops and calls `onOwnershipLost(state)` (see "Stopping"),
-2. refreshes `server.heartbeat`,
-3. removes expired sessions,
-4. counts active sessions,
-5. calls `enableCaffeine(state)` or `disableCaffeine(state)` if the answer changed,
-6. calls `onStateChange(state)` if a UI passed one in.
+2. refreshes the heartbeat on `server.pid`,
+3. removes expired sessions and counts the active ones, under one lock on the session file,
+4. calls `enableCaffeine(state)` or `disableCaffeine(state)` if the answer changed,
+5. calls `onStateChange(state)` if a UI passed one in,
+6. checks the idle timeout (see "Idle exit").
 
 `state` is a plain object that the server owns. Backends keep their handles on it, for example
 `powerSaveBlockerId` or `caffeinateProcess`.
@@ -184,7 +188,7 @@ poller:
 ### Stopping
 
 `SIGINT`, `SIGTERM`, or the tray's Exit item call `shutdownServer(state)`. It stops polling,
-releases the sleep lock, destroys the tray, and removes the PID file and heartbeat.
+releases the sleep lock, destroys the tray, and removes the PID file.
 
 A server also stops when another server has replaced it. If a startup race ever leaves two
 servers running, only one owns `server.pid`. The other sees this on its next poll, runs
@@ -356,8 +360,8 @@ depend on the machine they run on:
   commandExists, isSystemdBooted, fileExists, now })`. Tests pass a fake child process, a fixed
   platform, and a fake clock. The Windows ready timeout uses `setTimeout`, which tests replace
   with `t.mock.timers`.
-- `pid.js` takes `setDependencies({ platform, now })`, so the Windows heartbeat check runs on
-  any OS.
+- `pid.js` takes `setDependencies({ platform, now })`, so the heartbeat and Windows command-line
+  checks run on any OS.
 - Modules that read config or Electron are replaced in `require.cache` before the module
   under test loads. See `test/backend-native.test.js`.
 - Each test reloads the module under test, so cached state (like the resolved backend) starts

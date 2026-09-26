@@ -7,14 +7,13 @@ const { configPath } = require('./paths');
 
 const pidFile = () => configPath('server.pid');
 const startupFile = () => configPath('server.starting');
-const heartbeatFile = () => configPath('server.heartbeat');
 
 // A server only writes its PID once Electron has booted, which takes seconds.
 // Long enough to cover that window, short enough to retry a failed startup.
 const STARTUP_GRACE_MS = 30 * 1000;
 
-// Polls refresh the heartbeat every 5 seconds, but an Electron server writes its
-// PID before Electron is ready and polling starts.
+// The heartbeat is the PID file's modified time. Polls refresh it every 5 seconds,
+// but an Electron server writes its PID before Electron is ready and polling starts.
 const HEARTBEAT_STALE_MS = 30 * 1000;
 
 let deps = {
@@ -49,18 +48,18 @@ const withPidLock = async fn => {
 
 const writePidFile = async pid => {
   await fs.promises.writeFile(pidFile(), pid.toString(), 'utf8');
-  await writeHeartbeat(pid);
 };
 
-const writeHeartbeat = async pid => {
-  await fs.promises.writeFile(heartbeatFile(), pid.toString(), 'utf8');
+const writeHeartbeat = async () => {
+  const now = new Date();
+  await fs.promises.utimes(pidFile(), now, now);
 };
 
 const isHeartbeatFresh = async pid => {
   try {
     const [content, stats] = await Promise.all([
-      fs.promises.readFile(heartbeatFile(), 'utf8'),
-      fs.promises.stat(heartbeatFile())
+      fs.promises.readFile(pidFile(), 'utf8'),
+      fs.promises.stat(pidFile())
     ]);
     return (
       parseInt(content.trim(), 10) === pid && deps.now() - stats.mtimeMs < HEARTBEAT_STALE_MS
@@ -109,7 +108,6 @@ const removePidFile = async () => {
   const pid = await readPidFile();
   if (pid === process.pid) {
     await fs.promises.unlink(pidFile());
-    await fs.promises.rm(heartbeatFile(), { force: true });
   }
 };
 
@@ -146,9 +144,9 @@ const validatePid = async pid => {
     }
   }
 
-  // Reading a command line on Windows starts PowerShell, which takes about a
-  // second, and hooks run this check on every tool call.
-  if (deps.platform === 'win32' && (await isHeartbeatFresh(pid))) {
+  // Hooks run this check on every tool call, and reading a command line spawns
+  // ps, or PowerShell on Windows, which takes about a second.
+  if (await isHeartbeatFresh(pid)) {
     return true;
   }
 
