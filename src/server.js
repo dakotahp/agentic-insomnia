@@ -184,11 +184,7 @@ const startServer = async () => {
   // Prevent any window from being created
   preventWindowCreation();
 
-  // Setup event handlers with shutdown callback
-  setupAppEventHandlers(() => {
-    // We'll handle shutdown in the main process
-    process.exit(0);
-  });
+  setupAppEventHandlers();
 
   // Wait for app to be ready before starting system tray
   await whenReady();

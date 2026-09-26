@@ -77,35 +77,15 @@ const preventWindowCreation = () => {
 /**
  * Setup Electron app event handlers
  */
-const setupAppEventHandlers = shutdownCallback => {
+const setupAppEventHandlers = () => {
   const { app } = getElectron();
 
   app.on('window-all-closed', () => {
     // Don't quit on window close since we're running in background
   });
 
-  app.on('before-quit', () => {
-    // Cleanup handled by shutdown callback
-  });
-
   app.on('activate', () => {
     // No window to restore, we're system tray only
-  });
-
-  process.on('SIGINT', () => {
-    if (shutdownCallback) {
-      shutdownCallback();
-    } else {
-      process.exit(0);
-    }
-  });
-
-  process.on('SIGTERM', () => {
-    if (shutdownCallback) {
-      shutdownCallback();
-    } else {
-      process.exit(0);
-    }
   });
 };
 
