@@ -56,6 +56,10 @@ No build step. CommonJS, Node 22.12+ (`.node-version` pins the version CI and lo
 - `validatePid` trusts a live PID whose `server.pid` was modified in the last 30 seconds, and
   otherwise falls back to spawning `ps` or PowerShell. Servers must keep refreshing that
   modified time on every poll, and must never rewrite the file to do it.
+- Electron turns SIGINT and SIGTERM into an app quit and never calls Node's signal listeners.
+  Electron server cleanup runs from `onAppQuit` (`will-quit`). Check any change to shutdown
+  in a real Electron process: a unit test that counts listeners passed while the cleanup never
+  ran.
 - Config is cached per process. Restart the server after config changes.
 - The background server discards its logs. Debug with a foreground server.
 - `opencode/agentic-insomnia.mjs` stays one file with only a default export.
