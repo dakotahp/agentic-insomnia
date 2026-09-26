@@ -1,6 +1,6 @@
 {
   "name": "agentic-insomnia",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Prevents your computer from sleeping while a coding agent works hard",
   "main": "caffeine.js",
   "scripts": {
