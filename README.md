@@ -106,6 +106,7 @@ Then edit `config.json` and keep only the settings you want to change. `config.e
 {
   "stay_awake_after_turn_minutes": 5,
   "stale_session_minutes": 15,
+  "long_tool_call_minutes": 120,
   "server_shutdown_minutes": 30,
   "tray_icon_theme": "orange",
   "sleep_backend": "auto"
@@ -116,6 +117,7 @@ Then edit `config.json` and keep only the settings you want to change. `config.e
 |---------|---------|-------------|
 | `stay_awake_after_turn_minutes` | `5` | Minutes your machine is kept awake after a turn ends. This covers the short gaps between turns, so your machine cannot sleep in the middle of a workflow. `0` allows sleep as soon as a turn ends |
 | `stale_session_minutes` | `15` | Minutes before a session that never ended cleanly is forgotten. This is a fallback for a session whose `Stop` hook never fired, so you rarely need to change it |
+| `long_tool_call_minutes` | `120` | Minutes a single tool call can run while your machine is kept awake. A tool call sends no activity while it runs, so without this a long build or subagent could outlast `stale_session_minutes`. This also limits how long an interrupted tool call can keep your machine awake |
 | `server_shutdown_minutes` | `30` | Minutes with no active session before the background server exits and removes itself. The next hook starts it again. Applies to both sleep backends. `0` disables this |
 | `tray_icon_theme` | `"orange"` | Tray icon theme for the Electron backend: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
 | `sleep_backend` | `"auto"` | Sleep-prevention mechanism: `"auto"`, `"native"` (the OS sleep tool, no tray), or `"electron"` (powerSaveBlocker and a tray icon). See [Choosing a sleep backend](#choosing-a-sleep-backend) |

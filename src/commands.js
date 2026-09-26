@@ -53,6 +53,14 @@ const handleCaffeinate = () => {
   return handleSessionCommand('caffeinate', addSessionWithLock);
 };
 
+const handleToolStart = () => {
+  return handleSessionCommand('caffeinate', sessionId => addSessionWithLock(sessionId, 'start'));
+};
+
+const handleToolEnd = () => {
+  return handleSessionCommand('caffeinate', sessionId => addSessionWithLock(sessionId, 'end'));
+};
+
 const handleUncaffeinate = () => {
   return handleSessionCommand('uncaffeinate', removeSessionWithLock);
 };
@@ -79,6 +87,10 @@ const handleStatus = async () => {
         console.error(`  ${index + 1}. ${session.id}`);
         console.error(`     Created: ${created}`);
         console.error(`     Last Activity: ${lastActivity}`);
+        if (session.tool_started_at && !session.ended_at) {
+          const toolStarted = new Date(session.tool_started_at).toLocaleString();
+          console.error(`     Running a tool since: ${toolStarted}`);
+        }
         if (session.ended_at) {
           console.error(`     Ended: ${new Date(session.ended_at).toLocaleString()} (grace)`);
         }
@@ -108,18 +120,23 @@ const handleUsage = () => {
   console.error('');
   console.error('Commands:');
   console.error('  caffeinate     - Keep the machine awake for a session');
+  console.error('  tool-start     - Same, and keep it awake through a long tool call');
+  console.error('  tool-end       - Same, and mark the tool call finished');
   console.error('  uncaffeinate   - End a session; sleep is allowed after the grace period');
   console.error('  server         - Start the caffeine server');
   console.error('  status         - Show current status and active sessions');
   console.error('  version        - Show the installed version');
   console.error('');
-  console.error('caffeinate and uncaffeinate read the session id as JSON on stdin:');
+  console.error('Every command except server, status, and version reads the session id as JSON');
+  console.error('on stdin:');
   console.error('  echo \'{"session_id": "my-job"}\' | node caffeine.js caffeinate');
   process.exit(1);
 };
 
 module.exports = {
   handleCaffeinate,
+  handleToolStart,
+  handleToolEnd,
   handleUncaffeinate,
   handleStatus,
   handleVersion,

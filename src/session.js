@@ -6,6 +6,7 @@ const { configPath } = require('./paths');
 const sessionsFile = () => configPath('sessions.json');
 const getSessionTimeout = () => getConfig().stale_session_minutes * 60 * 1000;
 const getGracePeriod = () => getConfig().stay_awake_after_turn_minutes * 60 * 1000;
+const getLongToolCallLimit = () => getConfig().long_tool_call_minutes * 60 * 1000;
 const LOCK_OPTIONS = { retries: 10, stale: 30000 };
 
 // Once `ended_at` is stamped the grace window governs alone, so a long-running
@@ -13,6 +14,15 @@ const LOCK_OPTIONS = { retries: 10, stale: 30000 };
 const sessionHoldsLock = (sessionData, now) => {
   if (sessionData.ended_at) {
     return now - new Date(sessionData.ended_at) < getGracePeriod();
+  }
+
+  // A tool call sends no hooks while it runs, so the stale timeout alone would
+  // drop a session in the middle of a long one.
+  if (
+    sessionData.tool_started_at &&
+    now - new Date(sessionData.tool_started_at) < getLongToolCallLimit()
+  ) {
+    return true;
   }
 
   return now - new Date(sessionData.last_activity) < getSessionTimeout();
@@ -83,12 +93,16 @@ const withSessions = async operation => {
   }
 };
 
-const addSessionWithLock = async sessionId => {
+// `tool` is 'start' or 'end' for tool hooks. Any other activity, such as a new
+// prompt, also clears the tool mark, so an interrupted tool cannot leave it set.
+const addSessionWithLock = async (sessionId, tool) => {
   const { result, cleaned } = await withSessions((sessions, now) => {
+    const toolStartedAt = tool === 'start' ? now : null;
     const existing = sessions[sessionId];
     if (existing) {
       existing.last_activity = now;
       existing.ended_at = null;
+      existing.tool_started_at = toolStartedAt;
       return 'updated';
     }
 
@@ -96,6 +110,7 @@ const addSessionWithLock = async sessionId => {
       created_at: now,
       last_activity: now,
       ended_at: null,
+      tool_started_at: toolStartedAt,
       project_dir: process.env.CLAUDE_PROJECT_DIR
     };
     return 'added';

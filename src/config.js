@@ -7,6 +7,7 @@ const exampleConfigFile = () => configPath('config.example.json');
 const DEFAULTS = {
   stay_awake_after_turn_minutes: 5, // 0 disables
   stale_session_minutes: 15,
+  long_tool_call_minutes: 120,
   server_shutdown_minutes: 30, // 0 disables
   tray_icon_theme: 'orange', // 'orange' | 'monochrome'
   sleep_backend: 'auto' // 'auto' | 'native' | 'electron'

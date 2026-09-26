@@ -59,7 +59,7 @@ test('every hook command ends in a known CLI action', () => {
   eachHookCommand((event, hook) => {
     const action = hook.command.trim().split(/\s+/).pop();
     assert.ok(
-      action === 'caffeinate' || action === 'uncaffeinate',
+      ['caffeinate', 'uncaffeinate', 'tool-start', 'tool-end'].includes(action),
       `${event} hook runs unknown action "${action}"`
     );
   });
@@ -101,4 +101,11 @@ test('the Codex marketplace lists the plugin with a complete policy', () => {
   assert.ok(entry.category, 'Codex requires category on each plugin entry');
   assert.ok(entry.policy.installation, 'Codex requires policy.installation');
   assert.ok(entry.policy.authentication, 'Codex requires policy.authentication');
+});
+
+test('tool hooks mark when a tool starts and ends', () => {
+  const actionFor = event => hooks.hooks[event][0].hooks[0].command.trim().split(/\s+/).pop();
+
+  assert.strictEqual(actionFor('PreToolUse'), 'tool-start');
+  assert.strictEqual(actionFor('PostToolUse'), 'tool-end');
 });

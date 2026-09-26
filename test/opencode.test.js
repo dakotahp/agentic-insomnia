@@ -86,7 +86,7 @@ test('runs the caffeine.js next to the plugin with node', async () => {
   assert.strictEqual(fake.getCommand(), 'node');
   assert.deepStrictEqual(fake.getArgs(), [
     path.join(__dirname, '..', 'caffeine.js'),
-    'caffeinate'
+    'tool-start'
   ]);
 });
 
@@ -156,23 +156,23 @@ test('event hook ignores irrelevant events without spawning', async () => {
   assert.strictEqual(fake.getAction(), null);
 });
 
-test('tool.execute.before caffeinates using the input session id', async () => {
+test('tool.execute.before marks a tool start using the input session id', async () => {
   const fake = makeFakeChild();
   const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
 
   await hooks['tool.execute.before']({ sessionID: 'sess-4' });
 
-  assert.strictEqual(fake.getAction(), 'caffeinate');
+  assert.strictEqual(fake.getAction(), 'tool-start');
   assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-4' });
 });
 
-test('tool.execute.after caffeinates using the input session id', async () => {
+test('tool.execute.after marks a tool end using the input session id', async () => {
   const fake = makeFakeChild();
   const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
 
   await hooks['tool.execute.after']({ sessionID: 'sess-5' });
 
-  assert.strictEqual(fake.getAction(), 'caffeinate');
+  assert.strictEqual(fake.getAction(), 'tool-end');
   assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-5' });
 });
 

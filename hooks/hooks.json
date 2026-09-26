@@ -17,7 +17,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "node \"${CLAUDE_PLUGIN_ROOT}/caffeine.js\" caffeinate"
+                        "command": "node \"${CLAUDE_PLUGIN_ROOT}/caffeine.js\" tool-start"
                     }
                 ]
             }
@@ -28,7 +28,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "node \"${CLAUDE_PLUGIN_ROOT}/caffeine.js\" caffeinate"
+                        "command": "node \"${CLAUDE_PLUGIN_ROOT}/caffeine.js\" tool-end"
                     }
                 ]
             }
