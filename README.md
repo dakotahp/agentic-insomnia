@@ -99,8 +99,13 @@ The folders are created automatically, but `config.json` is not. Every setting i
 The server writes a `config.example.json` in the config folder on every start, holding every setting at its current default, so you never have to type a setting name from memory. Copy it to start:
 
 ```bash
-cd ~/.config/agentic-insomnia
-cp config.example.json config.json
+cp ~/.config/agentic-insomnia/config.example.json ~/.config/agentic-insomnia/config.json
+```
+
+On Windows, in PowerShell:
+
+```powershell
+Copy-Item "$env:LOCALAPPDATA\agentic-insomnia\config.example.json" "$env:LOCALAPPDATA\agentic-insomnia\config.json"
 ```
 
 **Upgrading from an older version:** older versions kept everything in `~/.claude/plugins/agentic-insomnia/`. A `config.json` there is still read while the new folder has none, and the server logs where to move it. Move it when convenient, then delete the old folder.
